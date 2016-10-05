@@ -14,7 +14,8 @@ int toca_esfera(punto origen, vector vector, punto centro, double radio)
 	b = b*2;
 
 	// Aqui se calcula la c (O*O+C*C-2*O*C-r*r)
-	double c = centro.x*centro.x + centro.y*centro.y + centro.z*centro.z;
+	double c = origen.x*origen.x + origen.y*origen.y + origen.z*origen.z;
+	c += centro.x*centro.x + centro.y*centro.y + centro.z*centro.z;
 	c -= 2*(centro.x*origen.x + centro.y*origen.y + centro.z*origen.z);
 	c -= radio*radio;
 
@@ -28,16 +29,16 @@ int toca_esfera(punto origen, vector vector, punto centro, double radio)
 
 	// Se termina de realizar la ecuacion
 	double t1 = 0.0 - b + sqrt(aux);
-	t1 = t1 / (2);
+	t1 = t1 / 2.0;
 	double t2 = 0.0 - b - sqrt(aux);
-	t2 = t2 / (2);
+	t2 = t2 / 2.0;
 	printf("t1: %.2f t2: %.2f\n",t1,t2);
 	return 1;
 }
 
 int main(int argc, char ** argv)
 {
-	punto O = {0.0, 0.0, 0.0};
+	punto O = {2.0, 2.0, 0.0};
 	vector D = {1.0, 0.0, 0.0};
 
 	punto C = {2.0, 0.0, 0.0};
