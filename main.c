@@ -2,7 +2,7 @@
 #include <math.h>
 #include "tipos.h"
 
-int toca_esfera(punto origen, vector vector, punto centro, double radio)
+double toca_esfera(punto origen, vector vector, punto centro, double radio)
 {
 	// Se calculan los operandos de la ecuacion cuadratica
 
@@ -24,7 +24,8 @@ int toca_esfera(punto origen, vector vector, punto centro, double radio)
 
 	if(aux<0.0)
 	{
-		return 0;
+		printf("No se toca\n");
+		return -1.0;
 	}
 
 	// Se termina de realizar la ecuacion
@@ -32,23 +33,33 @@ int toca_esfera(punto origen, vector vector, punto centro, double radio)
 	t1 = t1 / 2.0;
 	double t2 = 0.0 - b - sqrt(aux);
 	t2 = t2 / 2.0;
-	printf("t1: %.2f t2: %.2f\n",t1,t2);
-	return 1;
+
+	if(t1==t2 && t1>0.0)
+	{
+		printf("Se toca un único punto\n");
+		return t1;
+	} else if(t1>0.0 && t2<0.0)
+	{
+		printf("Dentro del circulo\n");
+		return t1;
+	} else if(t1>0.0 && t2>0.0)
+	{
+		printf("Fuera y se da el más cercano\n");
+		return t2;
+	} else{
+		printf("No se apunta a la esfera\n");
+		return -1.0;
+	}
 }
 
 int main(int argc, char ** argv)
 {
 	punto O = {2.0, 2.0, 0.0};
-	vector D = {1.0, 0.0, 0.0};
+	vector D = {-1.0, 0.0, 0.0};
 
-	punto C = {2.0, 0.0, 0.0};
+	punto C = {0.0, 1.0, 0.0};
 	double r = 1.0;
 
-	if(!toca_esfera(O,D,C,r))
-	{
-		printf("No toca la esfera\n");
-	} else
-	{
-		printf("Toca la esfera!!\n");
-	}
+	printf("%.2f",toca_esfera(O,D,C,r));
+
 }
