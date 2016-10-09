@@ -2,6 +2,14 @@
 #include <math.h>
 #include "tipos.h"
 
+int normalizar(vector * vec){
+	double tamanyo = sqrt(vec->x*vec->x + vec->y*vec->y + vec->z*vec->z);
+	vec->x = (vec->x)/tamanyo;
+	vec->y = (vec->y)/tamanyo;
+	vec->z = (vec->z)/tamanyo;
+	return 1;
+}
+
 double toca_esfera(punto origen, vector vector, punto centro, double radio)
 {
 	// Se calculan los operandos de la ecuacion cuadratica
@@ -24,7 +32,7 @@ double toca_esfera(punto origen, vector vector, punto centro, double radio)
 
 	if(aux<0.0)
 	{
-		printf("No se toca\n");
+		//printf("No se toca\n");
 		return -1.0;
 	}
 
@@ -36,30 +44,51 @@ double toca_esfera(punto origen, vector vector, punto centro, double radio)
 
 	if(t1==t2 && t1>0.0)
 	{
-		printf("Se toca un único punto\n");
+		//printf("Se toca un único punto\n");
 		return t1;
 	} else if(t1>0.0 && t2<0.0)
 	{
-		printf("Dentro del circulo\n");
+		//printf("Dentro del circulo\n");
 		return t1;
 	} else if(t1>0.0 && t2>0.0)
 	{
-		printf("Fuera y se da el más cercano\n");
+		//printf("Fuera y se da el más cercano\n");
 		return t2;
 	} else{
-		printf("No se apunta a la esfera\n");
+		//printf("No se apunta a la esfera\n");
 		return -1.0;
 	}
 }
 
 int main(int argc, char ** argv)
 {
-	punto O = {2.0, 2.0, 0.0};
+	punto O = {0.0, 0.0, 0.0};
 	vector D = {-1.0, 0.0, 0.0};
 
-	punto C = {0.0, 1.0, 0.0};
-	double r = 1.0;
+	punto C = {0.0, 0.0, 200.0};
+	double r = 50.0;
 
-	printf("%.2f",toca_esfera(O,D,C,r));
+	int ancho = 300;
+	int alto = 200;
 
+	//printf("%.2f",toca_esfera(O,D,C,r));
+
+	FILE * imagen;
+	imagen = fopen("imagen.ppm", "w");
+	fprintf(imagen, "P3 %d %d 255\n", ancho, alto);
+	int i,d;
+	for(i = 0; i<alto; i++)
+	{
+		for (d = 0; d<ancho; d++)
+		{
+			vector pixel = {i-150.0, d-100.0, 200.0};
+			normalizar(&pixel);
+			if(toca_esfera(O,pixel,C,r)>0.0){
+				fprintf(imagen, " 255 0 0 ");
+			} else{
+				fprintf(imagen, "   0 0 0 ");
+			}
+		}
+		fprintf(imagen, "\n");
+	}
 }
