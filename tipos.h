@@ -13,4 +13,10 @@ typedef struct vector{
 	double z;
 }vector;
 
+typedef struct lista{
+	punto * punto;
+	double radio;
+	struct lista * l;
+}lista;
+
 #endif

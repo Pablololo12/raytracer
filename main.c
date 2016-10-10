@@ -2,7 +2,11 @@
 #include <math.h>
 #include "tipos.h"
 
-int normalizar(vector * vec){
+
+punto O = {0.0, 0.0, 0.0};
+
+int normalizar(vector * vec)
+{
 	double tamanyo = sqrt(vec->x*vec->x + vec->y*vec->y + vec->z*vec->z);
 	vec->x = (vec->x)/tamanyo;
 	vec->y = (vec->y)/tamanyo;
@@ -46,11 +50,11 @@ double toca_esfera(punto origen, vector vector, punto centro, double radio)
 	{
 		//printf("Se toca un único punto\n");
 		return t1;
-	} else if(t1>0.0 && t2<0.0)
+	} else if(t1>=0.0 && t2<0.0)
 	{
 		//printf("Dentro del circulo\n");
 		return t1;
-	} else if(t1>0.0 && t2>0.0)
+	} else if(t1>=0.0 && t2>0.0)
 	{
 		//printf("Fuera y se da el más cercano\n");
 		return t2;
@@ -60,18 +64,38 @@ double toca_esfera(punto origen, vector vector, punto centro, double radio)
 	}
 }
 
+double punto_cercano(lista * l, vector pixel)
+{
+	double min = 65535.0;
+	double dist;
+	lista * aux = l;
+	while(1){
+		dist = toca_esfera(O,pixel,*aux->punto,aux->radio);
+		if(dist>0.0 && dist<min){
+			min = dist;
+		}
+		if(aux->l==NULL) break;
+		aux = aux->l;
+	}
+	if(min == 65535.0){
+		return -1.0;
+	}
+	return min;
+}
+
 int main(int argc, char ** argv)
 {
-	punto O = {0.0, 0.0, 0.0};
-	vector D = {-1.0, 0.0, 0.0};
+	punto C = {-500.0, 0.0, 2000.0};
+	double r = 700.0;
 
-	punto C = {0.0, 0.0, 200.0};
-	double r = 50.0;
+	punto C2 = {750.0, -300.0, 2000.0};
+	double r2 = 400.0;
 
-	int ancho = 300;
-	int alto = 200;
+	lista p = {&C2,r2,NULL};
+	lista l = {&C,r,&p};
 
-	//printf("%.2f",toca_esfera(O,D,C,r));
+	int ancho = 2000;
+	int alto = 2000;
 
 	FILE * imagen;
 	imagen = fopen("imagen.ppm", "w");
@@ -81,12 +105,12 @@ int main(int argc, char ** argv)
 	{
 		for (d = 0; d<ancho; d++)
 		{
-			vector pixel = {i-150.0, d-100.0, 200.0};
+			vector pixel = {i-1000.0, d-1000.0, 500.0};
 			normalizar(&pixel);
-			if(toca_esfera(O,pixel,C,r)>0.0){
-				fprintf(imagen, " 255 0 0 ");
+			if(punto_cercano(&l,pixel)>0.0){
+				fprintf(imagen," 128 128   0 ");
 			} else{
-				fprintf(imagen, "   0 0 0 ");
+				fprintf(imagen,"   0   0   0 ");
 			}
 		}
 		fprintf(imagen, "\n");
