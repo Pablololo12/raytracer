@@ -4,6 +4,8 @@
 
 
 punto O = {0.0, 0.0, 0.0};
+punto luz = {700.0, 500.0, 1000.0};
+int potencia = 500;
 
 int normalizar(vector * vec)
 {
@@ -64,34 +66,87 @@ double toca_esfera(punto origen, vector vector, punto centro, double radio)
 	}
 }
 
-double punto_cercano(lista * l, vector pixel)
+int calcular_luz(lista * l, vector pixel)
 {
+	// Primero buscamos el punto de intersección más cercano
 	double min = 65535.0;
 	double dist;
 	lista * aux = l;
+	lista * minimo = NULL;
 	while(1){
 		dist = toca_esfera(O,pixel,*aux->punto,aux->radio);
 		if(dist>0.0 && dist<min){
 			min = dist;
+			minimo = aux;
 		}
 		if(aux->l==NULL) break;
 		aux = aux->l;
 	}
 	if(min == 65535.0){
-		return -1.0;
+		return 0;
 	}
-	return min;
+	// Obtenemos las coordenadas del punto en el espacio
+	punto esfera;
+	esfera.x = O.x + pixel.x*min;
+	esfera.y = O.y + pixel.y*min;
+	esfera.z = O.z + pixel.z*min;
+	// Con el punto calculamos Li, de momento un unico punto de luz directa
+	vector inter;
+	inter.x = luz.x - esfera.x;
+	inter.y = luz.y - esfera.y;
+	inter.z = luz.z - esfera.z;
+	normalizar(&inter);
+
+	//if(toca_esfera(esfera, inter, *minimo->punto, minimo->radio)!=-1.0) return 0;
+	double light = inter.x*inter.x + inter.y*inter.y + inter.z*inter.z;
+	light = potencia / light;
+
+	// Ahora calculamos la BRDF de phong
+	// Primero obtenemos la normal, omega de o y de r
+	vector normal = {esfera.x - minimo->punto->x, esfera.y - minimo->punto->y, esfera.z - minimo->punto->z};
+	normalizar(&normal);
+	
+	vector omegao = {-pixel.x, -pixel.y, -pixel.z};
+	normalizar(&omegao);
+	
+	//Obtenemos omega r
+	double dotproduct = inter.x*normal.x + inter.y*normal.y + inter.z*normal.z;
+	vector omegar;
+	omegar.x = inter.x - 2*(inter.x - normal.x*dotproduct);
+	omegar.y = inter.y - 2*(inter.y - normal.y*dotproduct);
+	omegar.z = inter.z - 2*(inter.z - normal.z*dotproduct);
+	normalizar(&omegar);
+
+	// Por ultimo aplicamos phong
+	double dotproduct2 = omegao.x*omegar.x + omegao.y*normal.y + omegao.z*normal.z;
+	if(dotproduct2<0) dotproduct2 = -dotproduct2;
+
+	double acum = 0.5/3.141592;
+	acum += 0.5*((0.9+2)/(2*3.141592)) * pow(dotproduct2,0.9);
+	
+	// Por último obtenemos el coseno del angulo
+	//double base1 = sqrt(light);
+	//double base2 = sqrt(normal.x*normal.x + normal.y*normal.y + normal.z*normal.z);
+	//dotproduct = dotproduct / (base1 * base2);
+	if(dotproduct<0) dotproduct = -dotproduct;
+	//printf("%f %f %f\n",light, acum, dotproduct);
+	double resultado = light*acum*dotproduct;
+	return (int) resultado;
 }
 
 int main(int argc, char ** argv)
 {
-	punto C = {-500.0, 0.0, 2000.0};
-	double r = 700.0;
+	punto C = {-500.0, 0.0, 5000.0};
+	double r = 900.0;
 
-	punto C2 = {750.0, -300.0, 2000.0};
-	double r2 = 400.0;
+	punto C2 = {750.0, -500.0, 5000.0};
+	double r2 = 300.0;
 
-	lista p = {&C2,r2,NULL};
+	punto C3 = {300.0, 200, 4000.0};
+	double r3 = 450.0;
+
+	lista t = {&C3, r3, NULL};
+	lista p = {&C2,r2, &t};
 	lista l = {&C,r,&p};
 
 	int ancho = 2000;
@@ -105,13 +160,11 @@ int main(int argc, char ** argv)
 	{
 		for (d = 0; d<ancho; d++)
 		{
-			vector pixel = {i-1000.0, d-1000.0, 500.0};
+			vector pixel = {i-1000.0, d-1000.0, 3000.0};
 			normalizar(&pixel);
-			if(punto_cercano(&l,pixel)>0.0){
-				fprintf(imagen," 128 128   0 ");
-			} else{
-				fprintf(imagen,"   0   0   0 ");
-			}
+			int light = calcular_luz(&l,pixel);
+			if(light>255) light=255;
+			fprintf(imagen," 0 0 %d ",light);
 		}
 		fprintf(imagen, "\n");
 	}
