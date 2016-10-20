@@ -4,8 +4,8 @@
 
 
 punto O = {0.0, 0.0, 0.0};
-punto luz = {700.0, 500.0, 1000.0};
-int potencia = 500;
+punto luz = {2000.0, 2000.0, 3000.0};
+int potencia = 900;
 
 int normalizar(vector * vec)
 {
@@ -96,6 +96,15 @@ int calcular_luz(lista * l, vector pixel)
 	inter.y = luz.y - esfera.y;
 	inter.z = luz.z - esfera.z;
 	normalizar(&inter);
+
+	aux = l;
+	while(1)
+	{
+		dist = toca_esfera(esfera, inter,*aux->punto,aux->radio);
+		if(dist>=0.0) return 0;
+		if(aux->l==NULL) break;
+		aux = aux->l;
+	}
 
 	//if(toca_esfera(esfera, inter, *minimo->punto, minimo->radio)!=-1.0) return 0;
 	double light = inter.x*inter.x + inter.y*inter.y + inter.z*inter.z;
