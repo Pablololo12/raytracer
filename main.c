@@ -4,7 +4,7 @@
 
 
 punto O = {0.0, 0.0, 0.0};
-punto luz = {2000.0, 2000.0, 3000.0};
+punto luz = {1000.0, -1000.0, 2000.0};
 int potencia = 900;
 
 int normalizar(vector * vec)
@@ -16,7 +16,7 @@ int normalizar(vector * vec)
 	return 1;
 }
 
-double toca_esfera(punto origen, vector vector, punto centro, double radio)
+double toca_esfera(punto origen, vector vector, punto centro, double radio, int * num)
 {
 	// Se calculan los operandos de la ecuacion cuadratica
 
@@ -39,6 +39,7 @@ double toca_esfera(punto origen, vector vector, punto centro, double radio)
 	if(aux<0.0)
 	{
 		//printf("No se toca\n");
+		*num=0;
 		return -1.0;
 	}
 
@@ -51,17 +52,22 @@ double toca_esfera(punto origen, vector vector, punto centro, double radio)
 	if(t1==t2 && t1>0.0)
 	{
 		//printf("Se toca un único punto\n");
+		*num=1;
 		return t1;
 	} else if(t1>=0.0 && t2<0.0)
 	{
 		//printf("Dentro del circulo\n");
+		//return t1;
+		*num=1;
 		return t1;
-	} else if(t1>=0.0 && t2>0.0)
+	} else if(t1>=0.0 && t2>=0.0)
 	{
 		//printf("Fuera y se da el más cercano\n");
+		*num=2;
 		return t2;
 	} else{
 		//printf("No se apunta a la esfera\n");
+		*num=0;
 		return -1.0;
 	}
 }
@@ -70,11 +76,12 @@ int calcular_luz(lista * l, vector pixel)
 {
 	// Primero buscamos el punto de intersección más cercano
 	double min = 65535.0;
-	double dist;
+	double dist = 0.0;
+	int num = 0;
 	lista * aux = l;
 	lista * minimo = NULL;
 	while(1){
-		dist = toca_esfera(O,pixel,*aux->punto,aux->radio);
+		dist = toca_esfera(O,pixel,*aux->punto,aux->radio,&num);
 		if(dist>0.0 && dist<min){
 			min = dist;
 			minimo = aux;
@@ -95,13 +102,18 @@ int calcular_luz(lista * l, vector pixel)
 	inter.x = luz.x - esfera.x;
 	inter.y = luz.y - esfera.y;
 	inter.z = luz.z - esfera.z;
+	
 	normalizar(&inter);
 
 	aux = l;
 	while(1)
 	{
-		dist = toca_esfera(esfera, inter,*aux->punto,aux->radio);
-		if(dist>=0.0) return 0;
+		dist = toca_esfera(esfera, inter,*aux->punto,aux->radio,&num);
+		
+		if(dist>1.0 || num==2){
+		 return 0;
+		}
+		
 		if(aux->l==NULL) break;
 		aux = aux->l;
 	}
@@ -173,7 +185,7 @@ int main(int argc, char ** argv)
 			normalizar(&pixel);
 			int light = calcular_luz(&l,pixel);
 			if(light>255) light=255;
-			fprintf(imagen," 0 0 %d ",light);
+			fprintf(imagen," %d 0 0 ",light);
 		}
 		fprintf(imagen, "\n");
 	}
