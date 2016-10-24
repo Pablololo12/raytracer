@@ -4,7 +4,7 @@
 
 
 punto O = {0.0, 0.0, 0.0};
-punto luz = {1000.0, -1000.0, 2000.0};
+punto luz = {2000.0, 2000.0, 2000.0};
 int potencia = 900;
 
 int normalizar(vector * vec)
@@ -142,8 +142,8 @@ int calcular_luz(lista * l, vector pixel)
 	double dotproduct2 = omegao.x*omegar.x + omegao.y*normal.y + omegao.z*normal.z;
 	if(dotproduct2<0) dotproduct2 = -dotproduct2;
 
-	double acum = 0.5/3.141592;
-	acum += 0.5*((0.9+2)/(2*3.141592)) * pow(dotproduct2,0.9);
+	double acum = 0.9/3.141592;
+	acum += 0.9*((5+2)/(2*3.141592)) * pow(dotproduct2,5);
 	
 	// Por último obtenemos el coseno del angulo
 	//double base1 = sqrt(light);
