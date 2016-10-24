@@ -1,11 +1,51 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include "tipos.h"
 
+punto luz;
+int potencia;
 
-punto O = {0.0, 0.0, 0.0};
-punto luz = {2000.0, 2000.0, 2000.0};
-int potencia = 900;
+int ancho;
+int alto;
+punto camara;
+
+lista * l = NULL;
+
+int parser(FILE * f)
+{
+	lista * aux;
+	double x,y,z,radio;
+	fscanf(f, "%d %d",&ancho,&alto);
+	fscanf(f, "%lf %lf %lf",&x,&y,&z);
+	camara.x=x; camara.y=y; camara.z=z;
+	while(feof(f)==0)
+	{
+		char c = fgetc(f);
+		if(c=='l')
+		{
+			fscanf(f, "%lf %lf %lf %d",&x,&y,&z,&potencia);
+			luz.x=x; luz.y=y; luz.z=z;
+		}
+		else if(c=='e')
+		{
+			fscanf(f, "%lf %lf %lf %lf",&x,&y,&z,&radio);
+			lista * a = calloc(1,sizeof(lista));
+			a->radio=radio;
+			a->punto=calloc(1,sizeof(punto));
+			a->punto->x=x; a->punto->y=y; a->punto->z=z;
+			if(l==NULL){
+				l=a;
+				aux=l;
+			} else{
+				aux->l=a;
+				aux=a;
+			}
+			printf("aqui %f\n",radio);
+		}
+	}
+	return 0;
+}
 
 int normalizar(vector * vec)
 {
@@ -81,7 +121,7 @@ int calcular_luz(lista * l, vector pixel)
 	lista * aux = l;
 	lista * minimo = NULL;
 	while(1){
-		dist = toca_esfera(O,pixel,*aux->punto,aux->radio,&num);
+		dist = toca_esfera(camara,pixel,*aux->punto,aux->radio,&num);
 		if(dist>0.0 && dist<min){
 			min = dist;
 			minimo = aux;
@@ -94,9 +134,9 @@ int calcular_luz(lista * l, vector pixel)
 	}
 	// Obtenemos las coordenadas del punto en el espacio
 	punto esfera;
-	esfera.x = O.x + pixel.x*min;
-	esfera.y = O.y + pixel.y*min;
-	esfera.z = O.z + pixel.z*min;
+	esfera.x = camara.x + pixel.x*min;
+	esfera.y = camara.y + pixel.y*min;
+	esfera.z = camara.z + pixel.z*min;
 	// Con el punto calculamos Li, de momento un unico punto de luz directa
 	vector inter;
 	inter.x = luz.x - esfera.x;
@@ -157,7 +197,7 @@ int calcular_luz(lista * l, vector pixel)
 
 int main(int argc, char ** argv)
 {
-	punto C = {-500.0, 0.0, 5000.0};
+	punto C = {1000.0, 1000.0, 5000.0};
 	double r = 900.0;
 
 	punto C2 = {750.0, -500.0, 5000.0};
@@ -168,22 +208,24 @@ int main(int argc, char ** argv)
 
 	lista t = {&C3, r3, NULL};
 	lista p = {&C2,r2, &t};
-	lista l = {&C,r,&p};
-
-	int ancho = 2000;
-	int alto = 2000;
+	//lista l = {&C,r,&p};
 
 	FILE * imagen;
+	FILE * escena;
+
 	imagen = fopen("imagen.ppm", "w");
+	escena = fopen("imagen.scn", "r");
+	parser(escena);
+
 	fprintf(imagen, "P3 %d %d 255\n", ancho, alto);
 	int i,d;
-	for(i = 0; i<alto; i++)
+	for(i = alto-1; i>=0; i--)
 	{
 		for (d = 0; d<ancho; d++)
 		{
-			vector pixel = {i-1000.0, d-1000.0, 3000.0};
+			vector pixel = {d-camara.x, i-camara.y, 3000.0-camara.z};
 			normalizar(&pixel);
-			int light = calcular_luz(&l,pixel);
+			int light = calcular_luz(l,pixel);
 			if(light>255) light=255;
 			fprintf(imagen," %d 0 0 ",light);
 		}
