@@ -13,11 +13,23 @@ typedef struct vector{
 	double z;
 }vector;
 
+typedef struct color{
+	double r;
+	double g;
+	double b;
+}color;
 
 typedef struct lista{
 	punto * punto;
+	color * color;
 	double radio;
 	struct lista * l;
 }lista;
+
+typedef struct luces{
+	punto * punto;
+	color * color;
+	struct luces * l;
+}luces;
 
 #endif
