@@ -4,9 +4,6 @@
 #include <unistd.h>
 #include "tipos.h"
 
-punto luz;
-int potencia;
-
 // Valores de resolución y posición de la cámara
 int ancho;
 int alto;
@@ -43,7 +40,7 @@ int parser(FILE * f)
 		if(c=='l')
 		{
 			fscanf(f, "%lf %lf %lf %lf %lf %lf",&x,&y,&z,&R,&G,&B);
-			
+
 			luces * a = calloc(1, sizeof(luces));
 			a->punto=calloc(1,sizeof(punto));
 			a->color=calloc(1,sizeof(color));
@@ -155,7 +152,7 @@ double toca_esfera(punto origen, vector vector, punto centro, double radio, int 
 /*
  * Método para calcular la luz directa
  */
-int luz_directa(punto esfera, lista * minimo, color * color, luces * luz, vector pixel)
+int luz_directa(punto esfera, lista * minimo, color * rgb, luces * luz, vector pixel)
 {
 	// Con el punto calculamos Li, de momento un unico punto de luz directa
 	vector inter;
@@ -166,7 +163,7 @@ int luz_directa(punto esfera, lista * minimo, color * color, luces * luz, vector
 	double light = inter.x*inter.x + inter.y*inter.y + inter.z*inter.z;
 	double dist_luz = sqrt(light);
 
-	struct color power;
+	color power={0.0,0.0,0.0};
 	power.r = luz->color->r / light;
 	power.g = luz->color->g / light;
 	power.b = luz->color->b / light;
@@ -215,16 +212,16 @@ int luz_directa(punto esfera, lista * minimo, color * color, luces * luz, vector
 
 	if(dotproduct<0) dotproduct = -dotproduct;
 
-	color->r = power.r*acum*dotproduct*minimo->color->r;
-	color->g = power.g*acum*dotproduct*minimo->color->g;
-	color->b = power.b*acum*dotproduct*minimo->color->b;
+	rgb->r = power.r*acum*dotproduct*minimo->color->r;
+	rgb->g = power.g*acum*dotproduct*minimo->color->g;
+	rgb->b = power.b*acum*dotproduct*minimo->color->b;
 	return 1;
 }
 
 /*
  * Método para calcular la luz de un pixel
  */
-int calcular_luz(vector pixel, color * color)
+int calcular_luz(vector pixel, color * rgb, punto cam)
 {
 	// Primero buscamos el punto de intersección más cercano
 	double min = 65535.0;
@@ -233,7 +230,7 @@ int calcular_luz(vector pixel, color * color)
 	lista * aux = l;
 	lista * minimo = NULL;
 	while(1){
-		dist = toca_esfera(camara,pixel,*aux->punto,aux->radio,&num);
+		dist = toca_esfera(cam,pixel,*aux->punto,aux->radio,&num);
 		if(dist>0.0 && dist<min){
 			min = dist;
 			minimo = aux;
@@ -246,18 +243,27 @@ int calcular_luz(vector pixel, color * color)
 	}
 	// Obtenemos las coordenadas del punto en el espacio
 	punto esfera;
-	esfera.x = camara.x + pixel.x*min;
-	esfera.y = camara.y + pixel.y*min;
-	esfera.z = camara.z + pixel.z*min;
+	esfera.x = cam.x + pixel.x*min;
+	esfera.y = cam.y + pixel.y*min;
+	esfera.z = cam.z + pixel.z*min;
 
-	struct color col;
 	luces * aux2 = lights;
 	while(1){
+		color col={0.0,0.0,0.0};
 		luz_directa(esfera, minimo, &col, aux2, pixel);
-		color->r += col.r; color->g += col.g; color->b += col.b;
+		rgb->r = rgb->r + col.r; rgb->g = rgb->g + col.g; rgb->b = rgb->b + col.b;
 		if(aux2->l==NULL) break;
 		aux2 = aux2->l;
 	}
+	return 1;
+}
+
+int saturacion_color(color * col)
+{
+	if(col->r>255) col->r = 255;
+	if(col->g>255) col->g = 255;
+	if(col->b>255) col->b = 255;
+	
 	return 1;
 }
 
@@ -302,10 +308,11 @@ int main(int argc, char ** argv)
 		for (d = 0.0, d_d=0; d_d<ancho; d=d+i_ancho,d_d++)
 		{
 			vector pixel = {d-camara.x, i-camara.y, 0.0-camara.z};
-			color color = {0.0,0.0,0.0};
+			color col = {0.0,0.0,0.0};
 			normalizar(&pixel);
-			calcular_luz(pixel,&color);
-			fprintf(imagen," %d %d %d ", (int)color.r, (int)color.g, (int)color.b);
+			calcular_luz(pixel,&col,camara);
+			saturacion_color(&col);
+			fprintf(imagen," %d %d %d ", (int)col.r, (int)col.g, (int)col.b);
 		}
 		fprintf(imagen, "\n");
 	}
