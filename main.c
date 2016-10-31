@@ -263,7 +263,7 @@ int saturacion_color(color * col)
 	if(col->r>255) col->r = 255;
 	if(col->g>255) col->g = 255;
 	if(col->b>255) col->b = 255;
-	
+
 	return 1;
 }
 
@@ -303,6 +303,9 @@ int main(int argc, char ** argv)
 	double i_ancho=1.0/ancho;
 	double i_alto=1.0/alto;
 
+	int incrementador = alto/100;
+	int progreso = 0;
+	int porcentaje = 0;
 	for(i = 1.0, i_i=alto-1; i_i>0.0; i=i-i_alto,i_i--)
 	{
 		for (d = 0.0, d_d=0; d_d<ancho; d=d+i_ancho,d_d++)
@@ -314,6 +317,14 @@ int main(int argc, char ** argv)
 			saturacion_color(&col);
 			fprintf(imagen," %d %d %d ", (int)col.r, (int)col.g, (int)col.b);
 		}
+
+		progreso++;
+		if(progreso>=incrementador){
+			porcentaje++;progreso=0;
+			printf("\r%02d%%", porcentaje);
+			fflush(stdout);
+		}
+
 		fprintf(imagen, "\n");
 	}
 }
