@@ -321,10 +321,15 @@ int main(int argc, char ** argv)
 		progreso++;
 		if(progreso>=incrementador){
 			porcentaje++;progreso=0;
-			printf("\r%02d%%", porcentaje);
+			int p;
+			printf("\r[");
+			for(p=0;p<=porcentaje/5;p++) printf("=");
+			for(;p<20;p++) printf(" ");
+			printf("][%02d%%]", porcentaje);
 			fflush(stdout);
 		}
-
 		fprintf(imagen, "\n");
 	}
+	printf("\n");
+	return 0;
 }
