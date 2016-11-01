@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <unistd.h>
+#include <signal.h>
 #include "tipos.h"
 
 // Valores de resolución y posición de la cámara
@@ -269,7 +270,6 @@ int saturacion_color(color * col)
 
 int main(int argc, char ** argv)
 {
-
 	int opt;
 	// Con este bucle obtenemos los parametros dados
 	while ((opt = getopt (argc, argv, "o:i:h")) != -1){
