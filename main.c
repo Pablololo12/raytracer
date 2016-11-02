@@ -18,6 +18,14 @@ char * scn={"imagen.scn"};
 lista * l = NULL;
 luces * lights = NULL;
 
+
+/*
+ * Método para calcular el dot product
+ */
+double dotproduct (vector *a, vector *b){
+	return (a->x * b->x) + (a->y * b->y) + (a->z * b->z);
+}
+
 /*
  * Método para parsear el fichero de la escena
  */
@@ -63,10 +71,13 @@ int parser(FILE * f)
 			lista * a = calloc(1,sizeof(lista));
 			a->radio=radio;
 			a->punto=calloc(1,sizeof(punto));
-			a->color=calloc(1,sizeof(color));
+			a->propiedades=calloc(1,sizeof(propiedades));
+			a->propiedades->color=calloc(1,sizeof(color));
+			a->propiedades->Krfl=calloc(1,sizeof(color));
+			a->propiedades->Krfr=calloc(1,sizeof(color));
 
 			a->punto->x=x; a->punto->y=y; a->punto->z=z;
-			a->color->r=R; a->color->g=G; a->color->b=B;
+			a->propiedades->color->r=R; a->propiedades->color->g=G; a->propiedades->color->b=B;
 			if(l==NULL){
 				l=a;
 			} else{
@@ -150,6 +161,22 @@ double toca_esfera(punto origen, vector vector, punto centro, double radio, int 
 	}
 }
 
+color luz_total (punto point, vector normal, vector ray, propiedades *properties, int rebound){
+	color luz_total;
+	luz_total.r = 0;
+	luz_total.g = 0;
+	luz_total.b = 0;
+	if (properties->Krfl->r >= 0 || properties->Krfl->g >= 0 || properties->Krfl->b >= 0){
+		color reflected = reflection(&point, &normal, &ray);
+		luz_total.r += reflected.r*properties->Krfl->r;
+		luz_total.g += reflected.g*properties->Krfl->g;
+		luz_total.b += reflected.b*properties->Krfl->b;
+	}
+	if (properties->Krfl->r != 1 && properties->Krfl->g != 1 && properties->Krfl->b != 1){
+		luz_directa(point, )
+	}
+}
+
 /*
  * Método para calcular la luz directa
  */
@@ -213,10 +240,56 @@ int luz_directa(punto esfera, lista * minimo, color * rgb, luces * luz, vector p
 
 	if(dotproduct<0) dotproduct = -dotproduct;
 
-	rgb->r = power.r*acum*dotproduct*minimo->color->r;
-	rgb->g = power.g*acum*dotproduct*minimo->color->g;
-	rgb->b = power.b*acum*dotproduct*minimo->color->b;
+	rgb->r = power.r*acum*dotproduct*minimo->propiedades->color->r;
+	rgb->g = power.g*acum*dotproduct*minimo->propiedades->color->g;
+	rgb->b = power.b*acum*dotproduct*minimo->propiedades->color->b;
 	return 1;
+}
+
+
+
+/*
+ * Método para calcular el color de reflexión, los vectores deben estar normalizados
+ */
+color reflection (punto *point, vector *normal, vector *ray){
+
+	// se calcula el factor para calcular el rayo reflectado y se calcula
+	double factor = 2 * dotproduct(normal, ray);
+	vector reflection;
+	reflection.x = ray->x - factor * normal->x;
+	reflection.y = ray->y - factor * normal->y;
+	reflection.z = ray->z - factor * normal->z;
+	normalizar(&reflection);
+
+	double min = 65535.0;
+	double dist = 0.0;
+	int num = 0;
+	lista * aux = l;
+	lista * minimo = NULL;
+	while(1){
+		dist = toca_esfera(point, reflection, *aux->punto, aux->radio, &num);
+		if(dist>0.0 && dist<min){
+			min = dist;
+			minimo = aux;
+		}
+		if(aux->l==NULL) break;
+		aux = aux->l;
+	}
+	if(min == 65535.0){
+		color reflectionColor;
+		reflectionColor.r = 0;
+		reflectionColor.g = 0;
+		reflectionColor.b = 0;
+		return reflectionColor;
+	}
+
+	// Obtenemos las coordenadas del punto en el espacio
+	punto intersection;
+	intersection.x = point.x + reflection.x*min;
+	intersection.y = point.y + reflection.y*min;
+	intersection.z = point.z + reflection.z*min;
+
+	return luz_total(intersection, 0);
 }
 
 /*
