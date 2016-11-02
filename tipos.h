@@ -19,9 +19,15 @@ typedef struct color{
 	double b;
 }color;
 
+typedef struct propiedades{
+	color *color;
+	color *Krfl;
+	color *Krfr;
+}propiedades;
+
 typedef struct lista{
 	punto * punto;
-	color * color;
+	propiedades *propiedades;
 	double radio;
 	struct lista * l;
 }lista;
