@@ -5,6 +5,9 @@
 #include <signal.h>
 #include "tipos.h"
 
+
+int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo);
+
 // Valores de resolución y posición de la cámara
 int ancho;
 int alto;
@@ -35,7 +38,7 @@ int parser(FILE * f)
 	lista * aux = NULL;
 	luces * aux2 = NULL;
 	// variables auxiliares
-	double x,y,z,radio,R,G,B;
+	double x,y,z,radio,R,G,B,klr,klg,klb,krr,krg,krb;
 	// Se lee la resolución
 	fscanf(f, "%d %d",&ancho,&alto);
 	// Se lee la posición de la cámara
@@ -67,7 +70,7 @@ int parser(FILE * f)
 		// Si la linea empieza por e se lee una esfera
 		else if(c=='e')
 		{
-			fscanf(f, "%lf %lf %lf %lf %lf %lf %lf",&x,&y,&z,&radio,&R,&G,&B);
+			fscanf(f, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",&x,&y,&z,&radio,&R,&G,&B,&klr,&klg,&klb,&krr,&krg,&krb);
 			lista * a = calloc(1,sizeof(lista));
 			a->radio=radio;
 			a->punto=calloc(1,sizeof(punto));
@@ -78,6 +81,8 @@ int parser(FILE * f)
 
 			a->punto->x=x; a->punto->y=y; a->punto->z=z;
 			a->propiedades->color->r=R; a->propiedades->color->g=G; a->propiedades->color->b=B;
+			a->propiedades->Krfl->r=klr; a->propiedades->Krfl->g=klg; a->propiedades->Krfl->b=klb;
+			a->propiedades->Krfr->r=krr; a->propiedades->Krfr->g=krg; a->propiedades->Krfr->b=krb;
 			if(l==NULL){
 				l=a;
 			} else{
@@ -161,22 +166,6 @@ double toca_esfera(punto origen, vector vector, punto centro, double radio, int 
 	}
 }
 
-color luz_total (punto point, vector normal, vector ray, propiedades *properties, int rebound){
-	color luz_total;
-	luz_total.r = 0;
-	luz_total.g = 0;
-	luz_total.b = 0;
-	if (properties->Krfl->r >= 0 || properties->Krfl->g >= 0 || properties->Krfl->b >= 0){
-		color reflected = reflection(&point, &normal, &ray);
-		luz_total.r += reflected.r*properties->Krfl->r;
-		luz_total.g += reflected.g*properties->Krfl->g;
-		luz_total.b += reflected.b*properties->Krfl->b;
-	}
-	if (properties->Krfl->r != 1 && properties->Krfl->g != 1 && properties->Krfl->b != 1){
-		luz_directa(point, )
-	}
-}
-
 /*
  * Método para calcular la luz directa
  */
@@ -251,51 +240,25 @@ int luz_directa(punto esfera, lista * minimo, color * rgb, luces * luz, vector p
 /*
  * Método para calcular el color de reflexión, los vectores deben estar normalizados
  */
-color reflection (punto *point, vector *normal, vector *ray){
+color reflection (punto *point, vector *normal, vector *ray, int recursivo){
 
 	// se calcula el factor para calcular el rayo reflectado y se calcula
-	double factor = 2 * dotproduct(normal, ray);
+	double factor = normal->x * -ray->x + normal->y * -ray->y + normal->z * -ray->z;
 	vector reflection;
-	reflection.x = ray->x - factor * normal->x;
-	reflection.y = ray->y - factor * normal->y;
-	reflection.z = ray->z - factor * normal->z;
+	reflection.x = -ray->x - 2 * (-ray->x - factor * normal->x);
+	reflection.y = -ray->y - 2 * (-ray->y - factor * normal->y);
+	reflection.z = -ray->z - 2 * (-ray->z - factor * normal->z);
 	normalizar(&reflection);
 
-	double min = 65535.0;
-	double dist = 0.0;
-	int num = 0;
-	lista * aux = l;
-	lista * minimo = NULL;
-	while(1){
-		dist = toca_esfera(point, reflection, *aux->punto, aux->radio, &num);
-		if(dist>0.0 && dist<min){
-			min = dist;
-			minimo = aux;
-		}
-		if(aux->l==NULL) break;
-		aux = aux->l;
-	}
-	if(min == 65535.0){
-		color reflectionColor;
-		reflectionColor.r = 0;
-		reflectionColor.g = 0;
-		reflectionColor.b = 0;
-		return reflectionColor;
-	}
-
-	// Obtenemos las coordenadas del punto en el espacio
-	punto intersection;
-	intersection.x = point.x + reflection.x*min;
-	intersection.y = point.y + reflection.y*min;
-	intersection.z = point.z + reflection.z*min;
-
-	return luz_total(intersection, 0);
+	color reflectionColor={0.0,0.0,0.0};
+	calcular_luz(reflection,&reflectionColor,*point,recursivo--);
+	return reflectionColor;
 }
 
 /*
  * Método para calcular la luz de un pixel
  */
-int calcular_luz(vector pixel, color * rgb, punto cam)
+int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo)
 {
 	// Primero buscamos el punto de intersección más cercano
 	double min = 65535.0;
@@ -305,7 +268,7 @@ int calcular_luz(vector pixel, color * rgb, punto cam)
 	lista * minimo = NULL;
 	while(1){
 		dist = toca_esfera(cam,pixel,*aux->punto,aux->radio,&num);
-		if(dist>0.0 && dist<min){
+		if(dist>0.001 && dist<min){
 			min = dist;
 			minimo = aux;
 		}
@@ -328,6 +291,14 @@ int calcular_luz(vector pixel, color * rgb, punto cam)
 		rgb->r = rgb->r + col.r; rgb->g = rgb->g + col.g; rgb->b = rgb->b + col.b;
 		if(aux2->l==NULL) break;
 		aux2 = aux2->l;
+	}
+	if(recursivo>0){
+		vector normal = {esfera.x - minimo->punto->x, esfera.y - minimo->punto->y, esfera.z - minimo->punto->z};
+		normalizar(&normal);
+		color color_reflexion = reflection(&esfera, &normal, &pixel, recursivo);
+		rgb->r = rgb->r * (1.0-minimo->propiedades->Krfl->r) + color_reflexion.r * minimo->propiedades->Krfl->r;
+		rgb->g = rgb->g * (1.0-minimo->propiedades->Krfl->g) + color_reflexion.g * minimo->propiedades->Krfl->g;
+		rgb->b = rgb->b * (1.0-minimo->propiedades->Krfl->b) + color_reflexion.b * minimo->propiedades->Krfl->b;
 	}
 	return 1;
 }
@@ -386,7 +357,7 @@ int main(int argc, char ** argv)
 			vector pixel = {d-camara.x, i-camara.y, 0.0-camara.z};
 			color col = {0.0,0.0,0.0};
 			normalizar(&pixel);
-			calcular_luz(pixel,&col,camara);
+			calcular_luz(pixel,&col,camara,5);
 			saturacion_color(&col);
 			fprintf(imagen," %d %d %d ", (int)col.r, (int)col.g, (int)col.b);
 		}
