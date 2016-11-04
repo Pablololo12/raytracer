@@ -29,6 +29,13 @@ double dotproduct (vector *a, vector *b){
 	return (a->x * b->x) + (a->y * b->y) + (a->z * b->z);
 }
 
+int crossproduct (vector * a, vector * b, vector * c){
+	c->x = a->y*b->z - a->z*b->y;
+	c->y = a->z*b->x - a->x*b->z;
+	c->z = a->x*b->y - a->y*b->x;
+	return 1;
+}
+
 /*
  * Método para parsear el fichero de la escena
  */
@@ -104,6 +111,45 @@ int normalizar(vector * vec)
 	vec->y = (vec->y)/tamanyo;
 	vec->z = (vec->z)/tamanyo;
 	return 1;
+}
+
+/*
+ * Metodo para intersectar un triangulo
+ * Extraido de: https://en.wikipedia.org/wiki/Möller–Trumbore_intersection_algorithm
+ */
+double toca_triangulo(punto origen, vector vec, punto V1, punto V2, punto V3)
+{
+	vector e1 = {V2.x-V1.x, V2.y-V1.y, V2.z-V1.z};
+	vector e2 = {V3.x-V1.x, V3.y-V1.y, V3.z-V1.z};
+
+	vector P = {0.0,0.0,0.0};
+	crossproduct(&vec, &e2, &P);
+
+	double det = dotproduct(&e1, &P);
+
+	if(det > -0.01 && det < 0.01) return -1.0;
+	double inv_det = 1.0 / det;
+
+	vector T = {origen.x-V1.x, origen.y-V1.y, origen.z-V1.z};
+
+	double u = dotproduct(&T, &P) * inv_det;
+
+	if(u < 0.0 || u > 1.0) return -1.0;
+
+	vector Q = {0.0, 0.0, 0.0};
+	crossproduct(&T, &e1, &Q);
+
+	double v = dotproduct(&vec, &Q) * inv_det;
+
+	if(v < 0.0 || u + v > 1.0 ) return -1.0;
+
+	double t = dotproduct(&e2, &Q) * inv_det;
+
+	if(t > 0.01) {
+		return t;
+	}
+
+	return -1.0;
 }
 
 /*
