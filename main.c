@@ -13,6 +13,9 @@ int ancho;
 int alto;
 punto camara;
 
+
+double EPSILON = 0.0001;
+
 // Nombres por defecto de los ficheros
 char * img={"imagen.ppm"};
 char * scn={"imagen.scn"};
@@ -156,7 +159,7 @@ double toca_triangulo(punto origen, vector vec, punto V1, punto V2, punto V3)
  * Método para descubrir si un rayo toca una esfera
  * 	el vector vector debe estar normalizado
  */
-double toca_esfera(punto origen, vector vector, punto centro, double radio, int * num)
+double toca_esfera(punto origen, vector vector, punto centro, double radio, char * dir)
 {
 	// Se calculan los operandos de la ecuacion cuadratica
 
@@ -179,7 +182,6 @@ double toca_esfera(punto origen, vector vector, punto centro, double radio, int 
 	if(aux<0.0)
 	{
 		//printf("No se toca\n");
-		*num=0;
 		return -1.0;
 	}
 
@@ -192,22 +194,23 @@ double toca_esfera(punto origen, vector vector, punto centro, double radio, int 
 	if(t1==t2 && t1>0.0)
 	{
 		//printf("Se toca un único punto\n");
-		*num=1;
+		*dir=1;
+		if(t1<EPSILON) return 0.0;
 		return t1;
 	} else if(t1>=0.0 && t2<0.0)
 	{
 		//printf("Dentro del circulo\n");
-		//return t1;
-		*num=1;
+		*dir=0;
+		if(t1<EPSILON) return 0.0;
 		return t1;
 	} else if(t1>=0.0 && t2>=0.0)
 	{
 		//printf("Fuera y se da el más cercano\n");
-		*num=2;
+		*dir=1;
+		if(t2<EPSILON){ *dir=0; return t1;}
 		return t2;
 	} else{
 		//printf("No se apunta a la esfera\n");
-		*num=0;
 		return -1.0;
 	}
 }
@@ -215,7 +218,7 @@ double toca_esfera(punto origen, vector vector, punto centro, double radio, int 
 /*
  * Método para calcular la luz directa
  */
-int luz_directa(punto esfera, lista * minimo, color * rgb, luces * luz, vector pixel)
+int luz_directa(punto esfera, lista * minimo, color * rgb, luces * luz, vector pixel, vector normal)
 {
 	// Con el punto calculamos Li, de momento un unico punto de luz directa
 	vector inter;
@@ -235,12 +238,12 @@ int luz_directa(punto esfera, lista * minimo, color * rgb, luces * luz, vector p
 
 	lista * aux = l;
 	double dist;
-	int num = 0;
+	char dir=1;
 	while(1)
 	{
-		dist = toca_esfera(esfera, inter,*aux->punto,aux->radio,&num);
+		dist = toca_esfera(esfera, inter,*aux->punto,aux->radio,&dir);
 		
-		if((dist>0.0001 || num==2) && dist <= dist_luz){
+		if(dist>0.0 && dist <= dist_luz){
 		 return 0;
 		}
 		
@@ -250,8 +253,6 @@ int luz_directa(punto esfera, lista * minimo, color * rgb, luces * luz, vector p
 
 	// Ahora calculamos la BRDF de phong
 	// Primero obtenemos la normal, omega de o y de r
-	vector normal = {esfera.x - minimo->punto->x, esfera.y - minimo->punto->y, esfera.z - minimo->punto->z};
-	normalizar(&normal);
 	
 	vector omegao = {-pixel.x, -pixel.y, -pixel.z};
 	normalizar(&omegao);
@@ -297,8 +298,29 @@ color reflection (punto *point, vector *normal, vector *ray, int recursivo){
 	normalizar(&reflection);
 
 	color reflectionColor={0.0,0.0,0.0};
-	calcular_luz(reflection,&reflectionColor,*point,recursivo--);
+	calcular_luz(reflection,&reflectionColor,*point,recursivo);
 	return reflectionColor;
+}
+
+/*
+ *http://asawicki.info/news_1301_reflect_and_refract_functions.html
+ */
+color refraction (lista *esfera, punto *point, vector *normal, vector *ray, int recursivo){
+	double n_refraction = 1.2;
+	double dot = dotproduct(normal,ray);
+	double k = 1.0 - n_refraction * n_refraction * (1.0 - dot * dot);
+	vector refractado;
+	if(k<0.0){
+		refractado.x=0.0; refractado.y=0.0; refractado.z=0.0;
+	}
+	refractado.x = n_refraction * ray->x - (n_refraction * dot + sqrt(k));
+	refractado.y = n_refraction * ray->y - (n_refraction * dot + sqrt(k));
+	refractado.z = n_refraction * ray->z - (n_refraction * dot + sqrt(k));
+	normalizar(&refractado);
+	color refractionColor = {0.0, 0.0, 0.0};
+
+	calcular_luz(refractado,&refractionColor,*point,recursivo);
+	return refractionColor;
 }
 
 /*
@@ -309,12 +331,12 @@ int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo)
 	// Primero buscamos el punto de intersección más cercano
 	double min = 65535.0;
 	double dist = 0.0;
-	int num = 0;
 	lista * aux = l;
 	lista * minimo = NULL;
+	char dir = 1;
 	while(1){
-		dist = toca_esfera(cam,pixel,*aux->punto,aux->radio,&num);
-		if(dist>0.001 && dist<min){
+		dist = toca_esfera(cam,pixel,*aux->punto,aux->radio,&dir);
+		if(dist>EPSILON && dist<min){
 			min = dist;
 			minimo = aux;
 		}
@@ -330,30 +352,67 @@ int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo)
 	esfera.y = cam.y + pixel.y*min;
 	esfera.z = cam.z + pixel.z*min;
 
+	vector * normal = calloc(1,sizeof(vector));
+	if(dir==1){
+		normal->x = esfera.x - minimo->punto->x;
+		normal->y = esfera.y - minimo->punto->y;
+		normal->z = esfera.z - minimo->punto->z;
+	} else{
+		normal->x = minimo->punto->x - esfera.x;
+		normal->y = minimo->punto->y - esfera.y;
+		normal->z = minimo->punto->z - esfera.z;
+	}
+	normalizar(normal);
+
+
 	luces * aux2 = lights;
 	while(1){
 		color col={0.0,0.0,0.0};
-		luz_directa(esfera, minimo, &col, aux2, pixel);
+		luz_directa(esfera, minimo, &col, aux2, pixel, *normal);
 		rgb->r = rgb->r + col.r; rgb->g = rgb->g + col.g; rgb->b = rgb->b + col.b;
 		if(aux2->l==NULL) break;
 		aux2 = aux2->l;
 	}
+	
+	rgb->r = rgb->r * (1.0 - minimo->propiedades->Krfl->r - minimo->propiedades->Krfr->r);
+	rgb->g = rgb->g * (1.0 - minimo->propiedades->Krfl->g - minimo->propiedades->Krfr->g);
+	rgb->b = rgb->b * (1.0 - minimo->propiedades->Krfl->b - minimo->propiedades->Krfr->b);
+	
 	if(recursivo>0){
-		vector normal = {esfera.x - minimo->punto->x, esfera.y - minimo->punto->y, esfera.z - minimo->punto->z};
-		normalizar(&normal);
-		color color_reflexion = reflection(&esfera, &normal, &pixel, recursivo);
-		rgb->r = rgb->r * (1.0-minimo->propiedades->Krfl->r) + color_reflexion.r * minimo->propiedades->Krfl->r;
-		rgb->g = rgb->g * (1.0-minimo->propiedades->Krfl->g) + color_reflexion.g * minimo->propiedades->Krfl->g;
-		rgb->b = rgb->b * (1.0-minimo->propiedades->Krfl->b) + color_reflexion.b * minimo->propiedades->Krfl->b;
+		recursivo--;
+		color color_reflexion;
+		color color_refraccion;
+				
+		if(minimo->propiedades->Krfl->r!=0.0 && 
+			minimo->propiedades->Krfl->g!=0.0 && 
+			minimo->propiedades->Krfl->b!=0.0)
+		{
+			color_reflexion = reflection(&esfera, normal, &pixel, recursivo);
+			rgb->r = rgb->r + color_reflexion.r * minimo->propiedades->Krfl->r;
+			rgb->g = rgb->g + color_reflexion.g * minimo->propiedades->Krfl->g;
+			rgb->b = rgb->b + color_reflexion.b * minimo->propiedades->Krfl->b;
+		}
+		if(minimo->propiedades->Krfr->r!=0.0 && 
+			minimo->propiedades->Krfr->g!=0.0 && 
+			minimo->propiedades->Krfr->b!=0.0)
+		{
+
+			color_refraccion = refraction(minimo, &esfera, normal, &pixel, recursivo);
+			rgb->r = rgb->r + color_refraccion.r * minimo->propiedades->Krfr->r;
+			rgb->g = rgb->g + color_refraccion.g * minimo->propiedades->Krfr->g;
+			rgb->b = rgb->b + color_refraccion.b * minimo->propiedades->Krfr->b;
+		}
+
 	}
+	free(normal);
 	return 1;
 }
 
 int saturacion_color(color * col)
 {
-	if(col->r>255) col->r = 255;
-	if(col->g>255) col->g = 255;
-	if(col->b>255) col->b = 255;
+	if(col->r>1024) col->r = 1024;
+	if(col->g>1024) col->g = 1024;
+	if(col->b>1024) col->b = 1024;
 
 	return 1;
 }
@@ -384,7 +443,7 @@ int main(int argc, char ** argv)
 	escena = fopen(scn, "r");
 	parser(escena);
 
-	fprintf(imagen, "P3 %d %d 255\n", ancho, alto);
+	fprintf(imagen, "P3 %d %d 1024\n", ancho, alto);
 	// i y d se usan para crear los rayos
 	double i,d;
 	// i_i y d_d se usan debido a comportamientos extraños con altas resoluciones
@@ -404,6 +463,7 @@ int main(int argc, char ** argv)
 			color col = {0.0,0.0,0.0};
 			normalizar(&pixel);
 			calcular_luz(pixel,&col,camara,5);
+			col.r = col.r * 1024.0; col.g = col.g * 1024.0; col.b = col.b * 1024.0;
 			saturacion_color(&col);
 			fprintf(imagen," %d %d %d ", (int)col.r, (int)col.g, (int)col.b);
 		}
