@@ -26,12 +26,15 @@ luces * lights = NULL;
 
 
 /*
- * Método para calcular el dot product
+ * Método para calcular el producto escalar
  */
 double dotproduct (vector *a, vector *b){
 	return (a->x * b->x) + (a->y * b->y) + (a->z * b->z);
 }
 
+/*
+ * Método para calcular el producto vectorial
+ */
 int crossproduct (vector * a, vector * b, vector * c){
 	c->x = a->y*b->z - a->z*b->y;
 	c->y = a->z*b->x - a->x*b->z;
@@ -182,7 +185,7 @@ double toca_esfera(punto origen, vector vector, punto centro, double radio, char
 
 	if(aux<0.0)
 	{
-		//printf("No se toca\n");
+		// No se toca
 		return -1.0;
 	}
 
@@ -195,24 +198,24 @@ double toca_esfera(punto origen, vector vector, punto centro, double radio, char
 
 	if(t1==t2 && t1>0.0)
 	{
-		//printf("Se toca un único punto\n");
+		// Se toca un único punto
 		*dir=1;
 		if(t1<EPSILON) return 0.0;
 		return t1;
 	} else if(t1>=0.0 && t2<0.0)
 	{
-		//printf("Dentro del circulo\n");
+		// Dentro del circulo
 		*dir=0;
-		if(t1<=EPSILON){*dir=1; return 0.0;}
+		if(t1<=EPSILON){*dir=1; return 0.0;} 
 		return t1;
 	} else if(t1>=0.0 && t2>=0.0)
 	{
-		//printf("Fuera y se da el más cercano\n");
+		//Fuera y se da el más cercano
 		*dir=1;
 		if(t2<=EPSILON){ *dir=0; return t1;}
 		return t2;
 	} else{
-		//printf("No se apunta a la esfera\n");
+		//No se apunta a la esfera
 		return -1.0;
 	}
 }
@@ -241,6 +244,7 @@ int luz_directa(punto esfera, lista * minimo, color * rgb, luces * luz, vector p
 	lista * aux = l;
 	double dist;
 	char dir=1;
+	// Se comprueba si hay algun objeto entre el punto y la luz
 	while(1)
 	{
 		dist = toca_esfera(esfera, inter,*aux->punto,aux->radio,&dir);
@@ -338,6 +342,7 @@ int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo)
 	lista * minimo = NULL;
 	char dir = 1;
 	char dir_aux = 1;
+	// Buscamos donde se choca el rayo
 	while(1){
 		dist = toca_esfera(cam,pixel,*aux->punto,aux->radio,&dir);
 		if(dist>0.0 && dist<min){
@@ -358,6 +363,7 @@ int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo)
 	esfera.y = cam.y + pixel.y*min;
 	esfera.z = cam.z + pixel.z*min;
 
+	// Calculamos la normal dependiendo si se esta dentro o fuera del circulo
 	vector * normal = calloc(1,sizeof(vector));
 	if(dir_aux==1){
 		normal->x = esfera.x - minimo->punto->x;
@@ -370,7 +376,7 @@ int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo)
 	}
 	normalizar(normal);
 
-
+	// Obtenemos la luz directa
 	luces * aux2 = lights;
 	while(1){
 		color col={0.0,0.0,0.0};
@@ -380,6 +386,7 @@ int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo)
 		aux2 = aux2->l;
 	}
 	
+	// Obtenemos el porcentaje que corresponde por luz directa
 	rgb->r = rgb->r * (1.0 - minimo->propiedades->Krfl->r - minimo->propiedades->Krfr->r);
 	rgb->g = rgb->g * (1.0 - minimo->propiedades->Krfl->g - minimo->propiedades->Krfr->g);
 	rgb->b = rgb->b * (1.0 - minimo->propiedades->Krfl->b - minimo->propiedades->Krfr->b);
@@ -389,6 +396,7 @@ int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo)
 		color color_reflexion;
 		color color_refraccion;
 				
+		// Se calcula la reflexion solo si es necesario
 		if(minimo->propiedades->Krfl->r!=0.0 && 
 			minimo->propiedades->Krfl->g!=0.0 && 
 			minimo->propiedades->Krfl->b!=0.0)
@@ -398,6 +406,8 @@ int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo)
 			rgb->g = rgb->g + color_reflexion.g * minimo->propiedades->Krfl->g;
 			rgb->b = rgb->b + color_reflexion.b * minimo->propiedades->Krfl->b;
 		}
+
+		// Se calcula la refraccion solo si es necesario
 		if(minimo->propiedades->Krfr->r!=0.0 && 
 			minimo->propiedades->Krfr->g!=0.0 && 
 			minimo->propiedades->Krfr->b!=0.0)
@@ -469,6 +479,7 @@ int main(int argc, char ** argv)
 			color col = {0.0,0.0,0.0};
 			normalizar(&pixel);
 			calcular_luz(pixel,&col,camara,5);
+			// Desnormalizamos la luz
 			col.r = col.r * 255.0; col.g = col.g * 255.0; col.b = col.b * 255.0;
 			saturacion_color(&col);
 			fprintf(imagen," %d %d %d ", (int)col.r, (int)col.g, (int)col.b);
