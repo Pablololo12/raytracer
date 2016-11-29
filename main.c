@@ -312,8 +312,9 @@ color reflection (punto *point, vector *normal, vector *ray, int recursivo){
  * http://asawicki.info/news_1301_reflect_and_refract_functions.html
  * https://www.flipcode.com/archives/reflection_transmission.pdf
  */
-color refraction (lista *esfera, punto *point, vector *normal, vector *ray, int recursivo){
+color refraction (lista *esfera, punto *point, vector *normal, vector *ray, int recursivo, int dentro){
 	double n_refraction = esfera->propiedades->indice_ref; // Aire-Cristal 1.00/1.52=0.65
+	if(dentro == 0) n_refraction = 1.0/n_refraction;
 	double dot = -normal->x * ray->x + -normal->y * ray->y + -normal->z * ray->z;
 	double k = 1.0 - n_refraction * n_refraction * (1.0 - dot * dot);
 	vector refractado;
@@ -413,7 +414,7 @@ int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo)
 			minimo->propiedades->Krfr->b!=0.0)
 		{
 
-			color_refraccion = refraction(minimo, &esfera, normal, &pixel, recursivo);
+			color_refraccion = refraction(minimo, &esfera, normal, &pixel, recursivo, dir_aux);
 			rgb->r = rgb->r + color_refraccion.r * minimo->propiedades->Krfr->r;
 			rgb->g = rgb->g + color_refraccion.g * minimo->propiedades->Krfr->g;
 			rgb->b = rgb->b + color_refraccion.b * minimo->propiedades->Krfr->b;
