@@ -5,7 +5,7 @@
 #include <signal.h>
 #include "tipos.h"
 
-#define rayos_indirectos	40
+#define rayos_indirectos	128
 #define ALPHA	0.8
 #define RECURSIONES 5
 
