@@ -5,6 +5,8 @@
 #include <signal.h>
 #include "tipos.h"
 
+#define rayos_indirectos	128
+
 
 int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo);
 
@@ -420,9 +422,70 @@ int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo)
 			rgb->b = rgb->b + color_refraccion.b * minimo->propiedades->Krfr->b;
 		}
 
+
+
 	}
 	free(normal);
 	return 1;
+}
+
+double acumulativa_inversa_inclinacion(double x){
+	return acos(sqrt(1-x));
+}
+
+double p_inclinacion(double x){
+	return 2 * cos(x) * sen(x);
+}
+
+double acumulativa_inversa_acimut(double x){
+	return 2 * PI * x;
+}
+
+double p_acimut(double x){
+	return (double) 1 / (2 * PI);
+}
+
+vector global_desde_local(vector local, vector u, vector v, vector n){
+	vector global = {0.0, 0.0, 0.0};
+	global.x = u.x*local.x + v.x*local.y + n.x*local.z;
+	global.y = u.y*local.x + v.y*local.y + n.y*local.z;
+	global.z = u.z*local.x + v.z*local.y + n.z*local.z;
+	return global;
+}
+
+color luz_indirecta (punto punto_mat, vector n, int ks, int kd, int recursivo){
+	color luz_indirecta = {0.0, 0.0, 0.0};
+
+	if (recursivo > 0){
+		//primero se obtienen vectores perpendiculares para la geometria local
+		double aleatorio = (double) (rand()%1000) / 1000;
+		vector u = {aleatorio, aleatorio, aleatorio}
+		u = normalizar(dotproduct(&n, &u));
+		vector v = normalizar(dotproduct(&n, &u));
+
+		for (int i = 0; i < rayos_indirectos; i++){
+			//se eligen la inclinación y el acimut por montecarlo
+			double aleatorio = (double) (rand()%1000) / 1000;
+			double inclinacion = acumulativa_inversa_inclinacion(aleatorio);
+			aleatorio = (double) (rand()%1000) / 1000;
+			double acimut = acumulativa_inversa_acimut(aleatorio);
+
+
+
+
+			//se divide por las funciones de densidad de probabilidad
+			luz_indirecta.r = luz_indirecta.r * PI;
+			luz_indirecta.g = luz_indirecta.g * PI;
+			luz_indirecta.b = luz_indirecta.b * PI;
+		}
+		//se divide por el número de muestras
+		double dividendo = rayos_indirectos*rayos_indirectos;
+		luz_indirecta.r = luz_indirecta.r/dividendo;
+		luz_indirecta.g = luz_indirecta.g/dividendo;
+		luz_indirecta.b = luz_indirecta.b/dividendo;
+	}
+
+	return luz_indirecta;
 }
 
 int saturacion_color(color * col)
