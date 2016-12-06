@@ -462,43 +462,41 @@ vector global_desde_local(vector local, vector u, vector v, vector n){
 color luz_indirecta (punto punto_mat, vector n, int ks, int kd, int recursivo){
 	color luz_indirecta = {0.0, 0.0, 0.0};
 
-	if (recursivo > 0){
-		//primero se obtienen vectores perpendiculares para la geometria local
+	//primero se obtienen vectores perpendiculares para la geometria local
+	double aleatorio = (double) (rand()%1000) / 1000;
+	vector aleatoriov = {aleatorio, aleatorio, aleatorio};
+	vector u;
+	crossproduct(&n, &aleatoriov, &u);
+	normalizar(&u);
+	vector v;
+	crossproduct(&n, &u, &v);
+	normalizar(&v);
+
+	int i;
+	for (i = 0; i < rayos_indirectos; i++){
+		//se eligen la inclinación y el acimut por montecarlo
 		double aleatorio = (double) (rand()%1000) / 1000;
-		vector aleatoriov = {aleatorio, aleatorio, aleatorio};
-		vector u;
-		crossproduct(&n, &aleatoriov, &u);
-		normalizar(&u);
-		vector v;
-		crossproduct(&n, &u, &v);
-		normalizar(&v);
+		double inclinacion = acumulativa_inversa_inclinacion(aleatorio);
+		aleatorio = (double) (rand()%1000) / 1000;
+		double acimut = acumulativa_inversa_acimut(aleatorio);
 
-		int i;
-		for (i = 0; i < rayos_indirectos; i++){
-			//se eligen la inclinación y el acimut por montecarlo
-			double aleatorio = (double) (rand()%1000) / 1000;
-			double inclinacion = acumulativa_inversa_inclinacion(aleatorio);
-			aleatorio = (double) (rand()%1000) / 1000;
-			double acimut = acumulativa_inversa_acimut(aleatorio);
+		//vector reflejado en geometría local
+		vector reflejado = {sin(inclinacion) * cos(acimut), sin(inclinacion) * sin(acimut), cos(inclinacion)};
 
-			//vector reflejado en geometría local
-			vector reflejado = {sin(inclinacion) * cos(acimut), sin(inclinacion) * sin(acimut), cos(inclinacion)};
+		//vector reflejado en geometría global
+		reflejado = global_desde_local(reflejado, u, v, n);
 
-			//vector reflejado en geometría global
-			reflejado = global_desde_local(reflejado, u, v, n);
-
-			color luz_incidente;
-			calcular_luz(reflejado, &luz_incidente, punto_mat, recursivo);
-			luz_indirecta.r = luz_incidente.r * (kd + ks * (ALPHA + 2) / 2 * pow(dotproduct(&n, &reflejado), ALPHA));
-			luz_indirecta.g = luz_incidente.g * (kd + ks * (ALPHA + 2) / 2 * pow(dotproduct(&n, &reflejado), ALPHA));
-			luz_indirecta.b = luz_incidente.b * (kd + ks * (ALPHA + 2) / 2 * pow(dotproduct(&n, &reflejado), ALPHA));
-			
-		}
-		//se divide por el número de muestras y ladistribución de probabilidad
-		luz_indirecta.r = luz_indirecta.r/rayos_indirectos;
-		luz_indirecta.g = luz_indirecta.g/rayos_indirectos;
-		luz_indirecta.b = luz_indirecta.b/rayos_indirectos;
+		color luz_incidente;
+		calcular_luz(reflejado, &luz_incidente, punto_mat, recursivo);
+		luz_indirecta.r = luz_incidente.r * (kd + ks * (ALPHA + 2) / 2 * pow(dotproduct(&n, &reflejado), ALPHA));
+		luz_indirecta.g = luz_incidente.g * (kd + ks * (ALPHA + 2) / 2 * pow(dotproduct(&n, &reflejado), ALPHA));
+		luz_indirecta.b = luz_incidente.b * (kd + ks * (ALPHA + 2) / 2 * pow(dotproduct(&n, &reflejado), ALPHA));
+		
 	}
+	//se divide por el número de muestras y ladistribución de probabilidad
+	luz_indirecta.r = luz_indirecta.r/rayos_indirectos;
+	luz_indirecta.g = luz_indirecta.g/rayos_indirectos;
+	luz_indirecta.b = luz_indirecta.b/rayos_indirectos;
 
 	return luz_indirecta;
 }
