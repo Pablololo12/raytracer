@@ -428,7 +428,7 @@ int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo)
 		}
 
 	}
-	if(recursivo==RECURSIONES){
+	if(recursivo==RECURSIONES-1){
 		color_indirecta = luz_indirecta(esfera, *normal, 0.8, 0.8, recursivo);
 		rgb->r += color_indirecta.r * (1.0 - minimo->propiedades->Krfl->r - minimo->propiedades->Krfr->r);
 		rgb->g += color_indirecta.g * (1.0 - minimo->propiedades->Krfl->g - minimo->propiedades->Krfr->g);
