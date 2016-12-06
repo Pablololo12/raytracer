@@ -5,13 +5,13 @@
 #include <signal.h>
 #include "tipos.h"
 
-#define rayos_indirectos	128
+#define rayos_indirectos	40
 #define ALPHA	0.8
 #define RECURSIONES 5
 
 
 int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo);
-color luz_indirecta (punto punto_mat, vector n, int ks, int kd, int recursivo);
+color luz_indirecta (punto punto_mat, vector n, double ks, double kd, int recursivo);
 
 // Valores de resolución y posición de la cámara
 int ancho;
@@ -429,7 +429,7 @@ int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo)
 
 	}
 	if(recursivo==RECURSIONES-1){
-		color_indirecta = luz_indirecta(esfera, *normal, 0.8, 0.8, recursivo);
+		color_indirecta = luz_indirecta(esfera, *normal, 0.5, 0.5, recursivo);
 		rgb->r += color_indirecta.r * (1.0 - minimo->propiedades->Krfl->r - minimo->propiedades->Krfr->r);
 		rgb->g += color_indirecta.g * (1.0 - minimo->propiedades->Krfl->g - minimo->propiedades->Krfr->g);
 		rgb->b += color_indirecta.b * (1.0 - minimo->propiedades->Krfl->b - minimo->propiedades->Krfr->b);
@@ -462,7 +462,7 @@ vector global_desde_local(vector local, vector u, vector v, vector n){
 	return global;
 }
 
-color luz_indirecta (punto punto_mat, vector n, int ks, int kd, int recursivo){
+color luz_indirecta (punto punto_mat, vector n, double ks, double kd, int recursivo){
 	color luz_indirecta = {0.0, 0.0, 0.0};
 
 	//primero se obtienen vectores perpendiculares para la geometria local
@@ -491,15 +491,22 @@ color luz_indirecta (punto punto_mat, vector n, int ks, int kd, int recursivo){
 
 		color luz_incidente={0.0,0.0,0.0};
 		calcular_luz(reflejado, &luz_incidente, punto_mat, 0);
-		luz_indirecta.r = luz_incidente.r * (kd + ks * (ALPHA + 2) / 2 * pow(dotproduct(&n, &reflejado), ALPHA));
-		luz_indirecta.g = luz_incidente.g * (kd + ks * (ALPHA + 2) / 2 * pow(dotproduct(&n, &reflejado), ALPHA));
-		luz_indirecta.b = luz_incidente.b * (kd + ks * (ALPHA + 2) / 2 * pow(dotproduct(&n, &reflejado), ALPHA));
+		double dotproduc = dotproduct(&n, &reflejado);
+		if (dotproduc < 0) dotproduc = -dotproduc;
+		dotproduc = pow(dotproduc, ALPHA);
+		luz_indirecta.r += luz_incidente.r * (kd + ks * (ALPHA + 2) / 2 * dotproduc);
+		luz_indirecta.g += luz_incidente.g * (kd + ks * (ALPHA + 2) / 2 * dotproduc);
+		luz_indirecta.b += luz_incidente.b * (kd + ks * (ALPHA + 2) / 2 * dotproduc);
 		
 	}
 	//se divide por el número de muestras y ladistribución de probabilidad
 	luz_indirecta.r = luz_indirecta.r/(double)(rayos_indirectos);
 	luz_indirecta.g = luz_indirecta.g/(double)(rayos_indirectos);
 	luz_indirecta.b = luz_indirecta.b/(double)(rayos_indirectos);
+
+	/**if (luz_indirecta.r != 0.0 || luz_indirecta.g != 0 || luz_indirecta.b != 0){
+		printf("Ojo\n");
+	}*/
 
 	return luz_indirecta;
 }
