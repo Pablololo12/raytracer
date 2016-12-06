@@ -1,1 +1,1 @@
-gcc -Wall -Ofast -g -o main main.c -lm
+gcc -Wall -Ofast -o main main.c -lm

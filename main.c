@@ -7,6 +7,7 @@
 
 #define rayos_indirectos	128
 #define ALPHA	0.8
+#define RECURSIONES 5
 
 
 int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo);
@@ -396,11 +397,12 @@ int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo)
 	rgb->g = rgb->g * (1.0 - minimo->propiedades->Krfl->g - minimo->propiedades->Krfr->g);
 	rgb->b = rgb->b * (1.0 - minimo->propiedades->Krfl->b - minimo->propiedades->Krfr->b);
 	
+	color color_indirecta;
+
 	if(recursivo>0){
 		recursivo--;
 		color color_reflexion;
 		color color_refraccion;
-		color color_indirecta;
 				
 		// Se calcula la reflexion solo si es necesario
 		if(minimo->propiedades->Krfl->r!=0.0 && 
@@ -425,11 +427,12 @@ int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo)
 			rgb->b = rgb->b + color_refraccion.b * minimo->propiedades->Krfr->b;
 		}
 
+	}
+	if(recursivo==RECURSIONES){
 		color_indirecta = luz_indirecta(esfera, *normal, 0.8, 0.8, recursivo);
 		rgb->r += color_indirecta.r * (1.0 - minimo->propiedades->Krfl->r - minimo->propiedades->Krfr->r);
 		rgb->g += color_indirecta.g * (1.0 - minimo->propiedades->Krfl->g - minimo->propiedades->Krfr->g);
 		rgb->b += color_indirecta.b * (1.0 - minimo->propiedades->Krfl->b - minimo->propiedades->Krfr->b);
-
 	}
 	free(normal);
 	return 1;
@@ -486,17 +489,17 @@ color luz_indirecta (punto punto_mat, vector n, int ks, int kd, int recursivo){
 		//vector reflejado en geometría global
 		reflejado = global_desde_local(reflejado, u, v, n);
 
-		color luz_incidente;
-		calcular_luz(reflejado, &luz_incidente, punto_mat, recursivo);
+		color luz_incidente={0.0,0.0,0.0};
+		calcular_luz(reflejado, &luz_incidente, punto_mat, 0);
 		luz_indirecta.r = luz_incidente.r * (kd + ks * (ALPHA + 2) / 2 * pow(dotproduct(&n, &reflejado), ALPHA));
 		luz_indirecta.g = luz_incidente.g * (kd + ks * (ALPHA + 2) / 2 * pow(dotproduct(&n, &reflejado), ALPHA));
 		luz_indirecta.b = luz_incidente.b * (kd + ks * (ALPHA + 2) / 2 * pow(dotproduct(&n, &reflejado), ALPHA));
 		
 	}
 	//se divide por el número de muestras y ladistribución de probabilidad
-	luz_indirecta.r = luz_indirecta.r/rayos_indirectos;
-	luz_indirecta.g = luz_indirecta.g/rayos_indirectos;
-	luz_indirecta.b = luz_indirecta.b/rayos_indirectos;
+	luz_indirecta.r = luz_indirecta.r/(double)(rayos_indirectos);
+	luz_indirecta.g = luz_indirecta.g/(double)(rayos_indirectos);
+	luz_indirecta.b = luz_indirecta.b/(double)(rayos_indirectos);
 
 	return luz_indirecta;
 }
@@ -555,7 +558,7 @@ int main(int argc, char ** argv)
 			vector pixel = {d-camara.x, i-camara.y, 0.0-camara.z};
 			color col = {0.0,0.0,0.0};
 			normalizar(&pixel);
-			calcular_luz(pixel,&col,camara,5);
+			calcular_luz(pixel,&col,camara,RECURSIONES);
 			// Desnormalizamos la luz
 			col.r = col.r * 255.0; col.g = col.g * 255.0; col.b = col.b * 255.0;
 			saturacion_color(&col);
