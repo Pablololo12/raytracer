@@ -3,20 +3,28 @@
 #include <math.h>
 #include <unistd.h>
 #include <signal.h>
+#include <pthread.h>
 #include "tipos.h"
 
-#define rayos_indirectos	128
+#define rayos_indirectos	1024
 #define ALPHA	0.8
 #define RECURSIONES 5
+#define NUM_THREADS 4
+
+volatile sig_atomic_t progreso=0;
+volatile sig_atomic_t porcentaje=0;
+
+int * img_buff;
 
 
-int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo);
+color calcular_luz(vector pixel, punto cam, int recursivo);
 color luz_indirecta (punto punto_mat, vector n, double ks, double kd, int recursivo);
 
 // Valores de resolución y posición de la cámara
 int ancho;
 int alto;
 punto camara;
+int incrementador;
 
 
 double EPSILON = 0.00001;
@@ -228,7 +236,7 @@ double toca_esfera(punto origen, vector vector, punto centro, double radio, char
 /*
  * Método para calcular la luz directa
  */
-int luz_directa(punto esfera, lista * minimo, color * rgb, luces * luz, vector pixel, vector normal)
+color luz_directa(punto esfera, lista * minimo, luces * luz, vector pixel, vector normal)
 {
 	// Con el punto calculamos Li, de momento un unico punto de luz directa
 	vector inter;
@@ -255,7 +263,8 @@ int luz_directa(punto esfera, lista * minimo, color * rgb, luces * luz, vector p
 		dist = toca_esfera(esfera, inter,*aux->punto,aux->radio,&dir);
 		
 		if(dist>0.0 && dist <= dist_luz ){
-		 return 0;
+			color col={0.0,0.0,0.0};
+			return col;
 		}
 		
 		if(aux->l==NULL) break;
@@ -287,10 +296,11 @@ int luz_directa(punto esfera, lista * minimo, color * rgb, luces * luz, vector p
 
 	if(dotproduct<0) dotproduct = -dotproduct;
 
-	rgb->r = power.r*acum*dotproduct*minimo->propiedades->color->r;
-	rgb->g = power.g*acum*dotproduct*minimo->propiedades->color->g;
-	rgb->b = power.b*acum*dotproduct*minimo->propiedades->color->b;
-	return 1;
+	color rgb={0.0,0.0,0.0};
+	rgb.r = power.r*acum*dotproduct*minimo->propiedades->color->r;
+	rgb.g = power.g*acum*dotproduct*minimo->propiedades->color->g;
+	rgb.b = power.b*acum*dotproduct*minimo->propiedades->color->b;
+	return rgb;
 }
 
 
@@ -308,9 +318,9 @@ color reflection (punto *point, vector *normal, vector *ray, int recursivo){
 	reflection.z = -ray->z - 2 * (-ray->z - factor * normal->z);
 	normalizar(&reflection);
 
-	color reflectionColor={0.0,0.0,0.0};
-	calcular_luz(reflection,&reflectionColor,*point,recursivo);
-	return reflectionColor;
+	color col;
+	col=calcular_luz(reflection,*point,recursivo);
+	return col;
 }
 
 /*
@@ -330,17 +340,18 @@ color refraction (lista *esfera, punto *point, vector *normal, vector *ray, int 
 	refractado.y = n_refraction * ray->y + (n_refraction * dot - sqrt(k)) * normal->y;
 	refractado.z = n_refraction * ray->z + (n_refraction * dot - sqrt(k)) * normal->z;
 	normalizar(&refractado);
-	color refractionColor = {0.0, 0.0, 0.0};
 
-	calcular_luz(refractado,&refractionColor,*point,recursivo);
-	return refractionColor;
+	color col; 
+	col = calcular_luz(refractado,*point,recursivo);
+	return col;
 }
 
 /*
  * Método para calcular la luz de un pixel
  */
-int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo)
+color calcular_luz(vector pixel, punto cam, int recursivo)
 {
+	color rgb={0.0,0.0,0.0};
 	// Primero buscamos el punto de intersección más cercano
 	double min = 65535.0;
 	double dist = 0.0;
@@ -360,7 +371,8 @@ int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo)
 		aux = aux->l;
 	}
 	if(min == 65535.0){
-		return 0;
+		color col={0.0,0.0,0.0};
+		return col;
 	}
 
 	// Obtenemos las coordenadas del punto en el espacio
@@ -385,17 +397,17 @@ int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo)
 	// Obtenemos la luz directa
 	luces * aux2 = lights;
 	while(1){
-		color col={0.0,0.0,0.0};
-		luz_directa(esfera, minimo, &col, aux2, pixel, *normal);
-		rgb->r = rgb->r + col.r; rgb->g = rgb->g + col.g; rgb->b = rgb->b + col.b;
+		color col;
+		col=luz_directa(esfera, minimo, aux2, pixel, *normal);
+		rgb.r = rgb.r + col.r; rgb.g = rgb.g + col.g; rgb.b = rgb.b + col.b;
 		if(aux2->l==NULL) break;
 		aux2 = aux2->l;
 	}
 	
 	// Obtenemos el porcentaje que corresponde por luz directa
-	rgb->r = rgb->r * (1.0 - minimo->propiedades->Krfl->r - minimo->propiedades->Krfr->r);
-	rgb->g = rgb->g * (1.0 - minimo->propiedades->Krfl->g - minimo->propiedades->Krfr->g);
-	rgb->b = rgb->b * (1.0 - minimo->propiedades->Krfl->b - minimo->propiedades->Krfr->b);
+	rgb.r = rgb.r * (1.0 - minimo->propiedades->Krfl->r - minimo->propiedades->Krfr->r);
+	rgb.g = rgb.g * (1.0 - minimo->propiedades->Krfl->g - minimo->propiedades->Krfr->g);
+	rgb.b = rgb.b * (1.0 - minimo->propiedades->Krfl->b - minimo->propiedades->Krfr->b);
 	
 	color color_indirecta;
 
@@ -410,9 +422,9 @@ int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo)
 			minimo->propiedades->Krfl->b!=0.0)
 		{
 			color_reflexion = reflection(&esfera, normal, &pixel, recursivo);
-			rgb->r = rgb->r + color_reflexion.r * minimo->propiedades->Krfl->r;
-			rgb->g = rgb->g + color_reflexion.g * minimo->propiedades->Krfl->g;
-			rgb->b = rgb->b + color_reflexion.b * minimo->propiedades->Krfl->b;
+			rgb.r = rgb.r + color_reflexion.r * minimo->propiedades->Krfl->r;
+			rgb.g = rgb.g + color_reflexion.g * minimo->propiedades->Krfl->g;
+			rgb.b = rgb.b + color_reflexion.b * minimo->propiedades->Krfl->b;
 		}
 
 		// Se calcula la refraccion solo si es necesario
@@ -422,20 +434,20 @@ int calcular_luz(vector pixel, color * rgb, punto cam, int recursivo)
 		{
 
 			color_refraccion = refraction(minimo, &esfera, normal, &pixel, recursivo, dir_aux);
-			rgb->r = rgb->r + color_refraccion.r * minimo->propiedades->Krfr->r;
-			rgb->g = rgb->g + color_refraccion.g * minimo->propiedades->Krfr->g;
-			rgb->b = rgb->b + color_refraccion.b * minimo->propiedades->Krfr->b;
+			rgb.r = rgb.r + color_refraccion.r * minimo->propiedades->Krfr->r;
+			rgb.g = rgb.g + color_refraccion.g * minimo->propiedades->Krfr->g;
+			rgb.b = rgb.b + color_refraccion.b * minimo->propiedades->Krfr->b;
 		}
 
 	}
 	if(recursivo==RECURSIONES-1){
 		color_indirecta = luz_indirecta(esfera, *normal, 0.5, 0.5, recursivo);
-		rgb->r += color_indirecta.r * (1.0 - minimo->propiedades->Krfl->r - minimo->propiedades->Krfr->r);
-		rgb->g += color_indirecta.g * (1.0 - minimo->propiedades->Krfl->g - minimo->propiedades->Krfr->g);
-		rgb->b += color_indirecta.b * (1.0 - minimo->propiedades->Krfl->b - minimo->propiedades->Krfr->b);
+		rgb.r += color_indirecta.r * (1.0 - minimo->propiedades->Krfl->r - minimo->propiedades->Krfr->r);
+		rgb.g += color_indirecta.g * (1.0 - minimo->propiedades->Krfl->g - minimo->propiedades->Krfr->g);
+		rgb.b += color_indirecta.b * (1.0 - minimo->propiedades->Krfl->b - minimo->propiedades->Krfr->b);
 	}
 	free(normal);
-	return 1;
+	return rgb;
 }
 
 double acumulativa_inversa_inclinacion(double x){
@@ -489,8 +501,7 @@ color luz_indirecta (punto punto_mat, vector n, double ks, double kd, int recurs
 		//vector reflejado en geometría global
 		reflejado = global_desde_local(reflejado, u, v, n);
 
-		color luz_incidente={0.0,0.0,0.0};
-		calcular_luz(reflejado, &luz_incidente, punto_mat, 0);
+		color luz_incidente=calcular_luz(reflejado, punto_mat, 0);
 		double dotproduc = dotproduct(&n, &reflejado);
 		if (dotproduc < 0) dotproduc = -dotproduc;
 		dotproduc = pow(dotproduc, ALPHA);
@@ -513,11 +524,75 @@ color luz_indirecta (punto punto_mat, vector n, double ks, double kd, int recurs
 
 int saturacion_color(color * col)
 {
-	if(col->r>255) col->r = 255;
-	if(col->g>255) col->g = 255;
-	if(col->b>255) col->b = 255;
+	if(col->r>255.0) col->r = 255.0;
+	if(col->g>255.0) col->g = 255.0;
+	if(col->b>255.0) col->b = 255.0;
 
 	return 1;
+}
+
+void* trabajador(void * argumentos)
+{
+	int indice = *((int *)argumentos);
+	// i y d se usan para crear los rayos
+	double i,d;
+	// i_i y d_d se usan debido a comportamientos extraños con altas resoluciones
+	int i_i,d_d;
+
+	double i_ancho=1.0/ancho;
+	double i_alto=1.0/alto;
+
+	int index_buffer = ((ancho*alto*3)/NUM_THREADS)*indice;
+
+	for(i = (1.0/NUM_THREADS)*(NUM_THREADS-indice), i_i=alto/NUM_THREADS; i_i>0.0; i=i-i_alto,i_i--)
+	{
+		for (d = 0.0, d_d=0; d_d<ancho; d=d+i_ancho,d_d++)
+		{
+
+			vector pixel = {d-camara.x, i-camara.y, 0.0-camara.z};
+			color col;
+			normalizar(&pixel);
+			col = calcular_luz(pixel,camara,RECURSIONES);
+			// Desnormalizamos la luz
+			col.r = col.r * 255.0; col.g = col.g * 255; col.b = col.b * 255.0;
+			saturacion_color(&col);
+			img_buff[index_buffer]=(int)col.r;
+			img_buff[index_buffer+1]=(int)col.g;
+			img_buff[index_buffer+2]=(int)col.b;
+			index_buffer += 3;
+		}
+		progreso++;
+		if(progreso>=incrementador){
+			porcentaje++;progreso=0;
+			int p;
+			printf("\r[");
+			for(p=0;p<=porcentaje/5;p++) printf("=");
+			for(;p<20;p++) printf(" ");
+			printf("][%02d%%]", porcentaje);
+			fflush(stdout);
+			if(porcentaje==99) break;
+		}
+	}
+	return NULL;
+}
+
+color prueba2(int a, int b)
+{
+	color col={0.0,0.0,0.0};
+	if(b==0){
+		col.r=a;
+	} else if(b==1){
+		col.b=a;
+	} 
+	return col;
+}
+
+void* prueba(void* arg)
+{
+	int indice = *((int *)arg);
+	color col = prueba2(2, indice);
+	printf("%d %f %f %f\n", indice, col.r, col.g, col.b);
+	return NULL;
 }
 
 int main(int argc, char ** argv)
@@ -545,45 +620,33 @@ int main(int argc, char ** argv)
 	imagen = fopen(img, "w");
 	escena = fopen(scn, "r");
 	parser(escena);
+	fclose(escena);
 
 	fprintf(imagen, "P3 %d %d 255\n", ancho, alto);
-	// i y d se usan para crear los rayos
-	double i,d;
-	// i_i y d_d se usan debido a comportamientos extraños con altas resoluciones
-	int i_i,d_d;
+	img_buff=malloc(ancho*alto*sizeof(int)*3);
+	incrementador = alto/100;
 
-	double i_ancho=1.0/ancho;
-	double i_alto=1.0/alto;
+	pthread_t threads[ NUM_THREADS ];
+	int thread_args[ NUM_THREADS ];
+	int index;
 
-	int incrementador = alto/100;
-	int progreso = 0;
-	int porcentaje = 0;
-	for(i = 1.0, i_i=alto-1; i_i>0.0; i=i-i_alto,i_i--)
+	for( index = 0; index < NUM_THREADS; ++index )
 	{
-		for (d = 0.0, d_d=0; d_d<ancho; d=d+i_ancho,d_d++)
-		{
-			vector pixel = {d-camara.x, i-camara.y, 0.0-camara.z};
-			color col = {0.0,0.0,0.0};
-			normalizar(&pixel);
-			calcular_luz(pixel,&col,camara,RECURSIONES);
-			// Desnormalizamos la luz
-			col.r = col.r * 255.0; col.g = col.g * 255.0; col.b = col.b * 255.0;
-			saturacion_color(&col);
-			fprintf(imagen," %d %d %d ", (int)col.r, (int)col.g, (int)col.b);
-		}
-
-		progreso++;
-		if(progreso>=incrementador){
-			porcentaje++;progreso=0;
-			int p;
-			printf("\r[");
-			for(p=0;p<=porcentaje/5;p++) printf("=");
-			for(;p<20;p++) printf(" ");
-			printf("][%02d%%]", porcentaje);
-			fflush(stdout);
-		}
-		fprintf(imagen, "\n");
+		thread_args[ index ] = index;
+		pthread_create( threads + index , NULL, trabajador, thread_args + index );
 	}
+
+	// wait for each thread to complete
+	for( index = 0; index < NUM_THREADS; ++index )
+	{
+		pthread_join( threads[ index ], NULL );
+	}
+
+	printf("\nEscribiendo imagen...");
+	int i;
+	for(i=0; i<alto*ancho*3;i+=3)
+		fprintf(imagen, "%d %d %d  ", img_buff[i],img_buff[i+1],img_buff[i+2]);
+	fclose(imagen);
 	printf("\n");
 	return 0;
 }
