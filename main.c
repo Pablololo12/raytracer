@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <math.h>
 #include <unistd.h>
 #include <signal.h>
@@ -440,7 +441,7 @@ color calcular_luz(vector pixel, punto cam, int recursivo)
 		}
 
 	}
-	if(recursivo==RECURSIONES-1){
+	if(recursivo==RECURSIONES){
 		color_indirecta = luz_indirecta(esfera, *normal, 0.5, 0.5, recursivo);
 		rgb.r += color_indirecta.r * (1.0 - minimo->propiedades->Krfl->r - minimo->propiedades->Krfr->r);
 		rgb.g += color_indirecta.g * (1.0 - minimo->propiedades->Krfl->g - minimo->propiedades->Krfr->g);
@@ -490,6 +491,7 @@ color luz_indirecta (punto punto_mat, vector n, double ks, double kd, int recurs
 	int i;
 	for (i = 0; i < rayos_indirectos; i++){
 		//se eligen la inclinación y el acimut por montecarlo
+		srand(clock());
 		double aleatorio = (double) (rand()%1000) / 1000;
 		double inclinacion = acumulativa_inversa_inclinacion(aleatorio);
 		aleatorio = (double) (rand()%1000) / 1000;
@@ -544,7 +546,7 @@ void* trabajador(void * argumentos)
 
 	int index_buffer = ((ancho*alto*3)/NUM_THREADS)*indice;
 
-	for(i = (1.0/NUM_THREADS)*(NUM_THREADS-indice), i_i=alto/NUM_THREADS; i_i>0.0; i=i-i_alto,i_i--)
+	for(i = (1.0/NUM_THREADS)*(NUM_THREADS-indice), i_i=alto/NUM_THREADS-1; i_i>=0.0; i=i-i_alto,i_i--)
 	{
 		for (d = 0.0, d_d=0; d_d<ancho; d=d+i_ancho,d_d++)
 		{
@@ -570,7 +572,6 @@ void* trabajador(void * argumentos)
 			for(;p<20;p++) printf(" ");
 			printf("][%02d%%]", porcentaje);
 			fflush(stdout);
-			if(porcentaje==99) break;
 		}
 	}
 	return NULL;
