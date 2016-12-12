@@ -1,9 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-<<<<<<< HEAD
 #include <time.h>
-=======
->>>>>>> e949cdb099a2d1d8ea2a7437228c379ed92f0e2f
 #include <math.h>
 #include <unistd.h>
 #include <signal.h>
