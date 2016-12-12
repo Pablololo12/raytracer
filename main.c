@@ -7,8 +7,8 @@
 #include <pthread.h>
 #include "tipos.h"
 
-#define rayos_indirectos	1024
-#define ALPHA	0.8
+#define RAYOS_INDIRECTOS	1024
+#define ALPHA	1.0
 #define RECURSIONES 5
 #define NUM_THREADS 4
 
@@ -452,7 +452,7 @@ color calcular_luz(vector pixel, punto cam, int recursivo)
 }
 
 double acumulativa_inversa_inclinacion(double x){
-	return acos(sqrt(1-x));
+	return acos(sqrt(1.0-x));
 }
 
 double p_inclinacion(double x){
@@ -460,7 +460,7 @@ double p_inclinacion(double x){
 }
 
 double acumulativa_inversa_acimut(double x){
-	return 2 * M_PI * x;
+	return 2.0 * M_PI * x;
 }
 
 double p_acimut(double x){
@@ -479,7 +479,11 @@ color luz_indirecta (punto punto_mat, vector n, double ks, double kd, int recurs
 	color luz_indirecta = {0.0, 0.0, 0.0};
 
 	//primero se obtienen vectores perpendiculares para la geometria local
-	double aleatorio = (double) (rand()%1000) / 1000;
+	double aleatorio=0.0;
+	do{
+		aleatorio = (double) (rand()%1000) / 1000.0;
+	} while(aleatorio<=0.0 || aleatorio>=1.0);
+
 	vector aleatoriov = {aleatorio, aleatorio, aleatorio};
 	vector u;
 	crossproduct(&n, &aleatoriov, &u);
@@ -489,12 +493,16 @@ color luz_indirecta (punto punto_mat, vector n, double ks, double kd, int recurs
 	normalizar(&v);
 
 	int i;
-	for (i = 0; i < rayos_indirectos; i++){
+	for (i = 0; i < RAYOS_INDIRECTOS; i++){
 		//se eligen la inclinación y el acimut por montecarlo
 		srand(clock());
-		double aleatorio = (double) (rand()%1000) / 1000;
+		do{
+			aleatorio = (double) (rand()%1000) / 1000.0;
+		} while(aleatorio<0.0 || aleatorio>=1.0);
 		double inclinacion = acumulativa_inversa_inclinacion(aleatorio);
-		aleatorio = (double) (rand()%1000) / 1000;
+		do{
+			aleatorio = (double) (rand()%1000) / 1000.0;
+		} while(aleatorio<0.0 || aleatorio>=1.0);
 		double acimut = acumulativa_inversa_acimut(aleatorio);
 
 		//vector reflejado en geometría local
@@ -513,9 +521,9 @@ color luz_indirecta (punto punto_mat, vector n, double ks, double kd, int recurs
 		
 	}
 	//se divide por el número de muestras y ladistribución de probabilidad
-	luz_indirecta.r = luz_indirecta.r/(double)(rayos_indirectos);
-	luz_indirecta.g = luz_indirecta.g/(double)(rayos_indirectos);
-	luz_indirecta.b = luz_indirecta.b/(double)(rayos_indirectos);
+	luz_indirecta.r = luz_indirecta.r/(double)(RAYOS_INDIRECTOS);
+	luz_indirecta.g = luz_indirecta.g/(double)(RAYOS_INDIRECTOS);
+	luz_indirecta.b = luz_indirecta.b/(double)(RAYOS_INDIRECTOS);
 
 	/**if (luz_indirecta.r != 0.0 || luz_indirecta.g != 0 || luz_indirecta.b != 0){
 		printf("Ojo\n");
