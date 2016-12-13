@@ -7,7 +7,7 @@
 #include <pthread.h>
 #include "tipos.h"
 
-#define RAYOS_INDIRECTOS	1024
+#define RAYOS_INDIRECTOS	64
 #define ALPHA	1.0
 #define RECURSIONES 5
 #define NUM_THREADS 4
@@ -440,14 +440,23 @@ color calcular_luz(vector pixel, punto cam, int recursivo)
 			rgb.b = rgb.b + color_refraccion.b * minimo->propiedades->Krfr->b;
 		}
 
+		color_indirecta = luz_indirecta(esfera, *normal, 0.5, 0.5, recursivo);
+		rgb.r += color_indirecta.r * (1.0 - minimo->propiedades->Krfl->r - minimo->propiedades->Krfr->r);
+		rgb.g += color_indirecta.g * (1.0 - minimo->propiedades->Krfl->g - minimo->propiedades->Krfr->g);
+		rgb.b += color_indirecta.b * (1.0 - minimo->propiedades->Krfl->b - minimo->propiedades->Krfr->b);
+
 	}
-	if(recursivo==RECURSIONES-1){
+	if(recursivo==RECURSIONES){
 		color_indirecta = luz_indirecta(esfera, *normal, 0.5, 0.5, recursivo);
 		rgb.r += color_indirecta.r * (1.0 - minimo->propiedades->Krfl->r - minimo->propiedades->Krfr->r);
 		rgb.g += color_indirecta.g * (1.0 - minimo->propiedades->Krfl->g - minimo->propiedades->Krfr->g);
 		rgb.b += color_indirecta.b * (1.0 - minimo->propiedades->Krfl->b - minimo->propiedades->Krfr->b);
 	}
 	free(normal);
+
+	if(rgb.r > 1.0) rgb.r=1.0;
+	if(rgb.g > 1.0) rgb.g=1.0;
+	if(rgb.b > 1.0) rgb.b=1.0;
 	return rgb;
 }
 
@@ -515,6 +524,7 @@ color luz_indirecta (punto punto_mat, vector n, double ks, double kd, int recurs
 		double dotproduc = dotproduct(&n, &reflejado);
 		if (dotproduc < 0) dotproduc = -dotproduc;
 		dotproduc = pow(dotproduc, ALPHA);
+		
 		luz_indirecta.r += luz_incidente.r * (kd + ks * (ALPHA + 2) / 2 * dotproduc);
 		luz_indirecta.g += luz_incidente.g * (kd + ks * (ALPHA + 2) / 2 * dotproduc);
 		luz_indirecta.b += luz_incidente.b * (kd + ks * (ALPHA + 2) / 2 * dotproduc);
