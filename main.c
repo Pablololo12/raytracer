@@ -8,7 +8,6 @@
 #include "tipos.h"
 
 #define RAYOS_INDIRECTOS	64
-#define ALPHA	1.0
 #define RECURSIONES 5
 #define NUM_THREADS 4
 
@@ -19,7 +18,7 @@ int * img_buff;
 
 
 color calcular_luz(vector pixel, punto cam, int recursivo);
-color luz_indirecta (punto punto_mat, vector n, double ks, double kd, int recursivo);
+color luz_indirecta (punto punto_mat, vector n, vector incidente, double ks, color *kd, double alpha, int recursivo);
 
 // Valores de resolución y posición de la cámara
 int ancho=500;
@@ -105,6 +104,8 @@ int parserOBJ(FILE * f)
 			la->propiedades->Krfl->r=0.0; la->propiedades->Krfl->g=0.0; la->propiedades->Krfl->b=0.0;
 			la->propiedades->Krfr->r=0.0; la->propiedades->Krfr->g=0.0; la->propiedades->Krfr->b=0.0;
 			la->propiedades->indice_ref=0.0;
+			la->propiedades->ks=0.5;
+			la->propiedades->alpha=2;
 			if(l==NULL){
 				l=la;
 			} else{
@@ -127,7 +128,7 @@ int parser(FILE * f)
 	lista * aux = NULL;
 	luces * aux2 = NULL;
 	// variables auxiliares
-	double x,y,z,radio,R,G,B,klr,klg,klb,krr,krg,krb,ind;
+	double x,y,z,radio,R,G,B,klr,klg,klb,krr,krg,krb,ind,ks,alpha;
 	// Se lee la resolución
 	fscanf(f, "%d %d",&ancho,&alto);
 	// Se lee la posición de la cámara
@@ -159,7 +160,7 @@ int parser(FILE * f)
 		// Si la linea empieza por e se lee una esfera
 		else if(c=='e')
 		{
-			fscanf(f, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",&x,&y,&z,&radio,&R,&G,&B,&klr,&klg,&klb,&krr,&krg,&krb,&ind);
+			fscanf(f, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",&x,&y,&z,&radio,&R,&G,&B,&klr,&klg,&klb,&krr,&krg,&krb,&ind, &ks, &alpha);
 			lista * a = calloc(1,sizeof(lista));
 			a->radio=radio;
 			a->punto=calloc(1,sizeof(punto));
@@ -173,6 +174,8 @@ int parser(FILE * f)
 			a->propiedades->Krfl->r=klr; a->propiedades->Krfl->g=klg; a->propiedades->Krfl->b=klb;
 			a->propiedades->Krfr->r=krr; a->propiedades->Krfr->g=krg; a->propiedades->Krfr->b=krb;
 			a->propiedades->indice_ref=ind;
+			a->propiedades->ks=ks;
+			a->propiedades->alpha=alpha;
 			if(l==NULL){
 				l=a;
 			} else{
@@ -182,7 +185,7 @@ int parser(FILE * f)
 		} else if(c=='t')
 		{
 			double x2,y2,z2,x3,y3,z3;
-			fscanf(f, "%lf %lf %lf %lf %lf %lf %lf %lf %lf",&x,&y,&z,&x2,&y2,&z2,&x3,&y3,&z3);
+			fscanf(f, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",&x,&y,&z,&x2,&y2,&z2,&x3,&y3,&z3,&ks,&alpha,&R,&G,&B);
 			lista * a = calloc(1,sizeof(lista));
 			a->radio=-1.0;
 			a->punto=calloc(3,sizeof(punto));
@@ -194,10 +197,12 @@ int parser(FILE * f)
 			a->punto[0].x=x; a->punto[0].y=y; a->punto[0].z=z;
 			a->punto[1].x=x2; a->punto[1].y=y2; a->punto[1].z=z2;
 			a->punto[2].x=x3; a->punto[2].y=y3; a->punto[2].z=z3;
-			a->propiedades->color->r=0.5; a->propiedades->color->g=0.5; a->propiedades->color->b=0.5;
+			a->propiedades->color->r=R; a->propiedades->color->g=G; a->propiedades->color->b=B;
 			a->propiedades->Krfl->r=0.0; a->propiedades->Krfl->g=0.0; a->propiedades->Krfl->b=0.0;
 			a->propiedades->Krfr->r=0.0; a->propiedades->Krfr->g=0.0; a->propiedades->Krfr->b=0.0;
 			a->propiedades->indice_ref=0.0;
+			a->propiedades->ks=ks;
+			a->propiedades->alpha=alpha;
 			if(l==NULL){
 				l=a;
 			} else{
@@ -371,28 +376,29 @@ color luz_directa(punto esfera, lista * minimo, luces * luz, vector pixel, vecto
 	normalizar(&omegao);
 	
 	//Obtenemos omega r
-	double dotproduct = inter.x*normal.x + inter.y*normal.y + inter.z*normal.z;
+	double dotproduc = inter.x*normal.x + inter.y*normal.y + inter.z*normal.z;
 	vector omegar;
-	omegar.x = inter.x - 2*(inter.x - normal.x*dotproduct);
-	omegar.y = inter.y - 2*(inter.y - normal.y*dotproduct);
-	omegar.z = inter.z - 2*(inter.z - normal.z*dotproduct);
+	omegar.x = inter.x - 2*(inter.x - normal.x*dotproduc);
+	omegar.y = inter.y - 2*(inter.y - normal.y*dotproduc);
+	omegar.z = inter.z - 2*(inter.z - normal.z*dotproduc);
 	normalizar(&omegar);
 
+
+	double dotproductIntegral = dotproduct(&omegar, &normal);
+	if (dotproductIntegral < 0) dotproductIntegral = -dotproductIntegral;
+
 	// Por ultimo aplicamos phong
-	double dotproduct2 = omegao.x*omegar.x + omegao.y*normal.y + omegao.z*normal.z;
-	if(dotproduct2<0) dotproduct2 = -dotproduct2;
-
-	double acum = 0.5/3.141592;
-	acum += 0.5*((1+2)/(2*3.141592)) * pow(dotproduct2,1);
+	double dotproductPhong = dotproduct(&omegao, &omegar);
+	if (dotproductPhong < 0) dotproductPhong = -dotproductPhong;
+	dotproductPhong = pow(dotproductPhong, minimo->propiedades->alpha);
 	
-	// Por último obtenemos el coseno del angulo
-
-	if(dotproduct<0) dotproduct = -dotproduct;
+	double especular = minimo->propiedades->ks * (minimo->propiedades->alpha + 2) / 2 * dotproductPhong;
 
 	color rgb={0.0,0.0,0.0};
-	rgb.r = power.r*acum*dotproduct*minimo->propiedades->color->r;
-	rgb.g = power.g*acum*dotproduct*minimo->propiedades->color->g;
-	rgb.b = power.b*acum*dotproduct*minimo->propiedades->color->b;
+	rgb.r = power.r * (minimo->propiedades->color->r + especular) / M_PI * dotproductIntegral;
+	rgb.g = power.g * (minimo->propiedades->color->g + especular) / M_PI * dotproductIntegral;
+	rgb.b = power.b * (minimo->propiedades->color->b + especular) / M_PI * dotproductIntegral;
+
 	return rgb;
 }
 
@@ -516,12 +522,12 @@ color calcular_luz(vector pixel, punto cam, int recursivo)
 	rgb.g = rgb.g * (1.0 - minimo->propiedades->Krfl->g - minimo->propiedades->Krfr->g);
 	rgb.b = rgb.b * (1.0 - minimo->propiedades->Krfl->b - minimo->propiedades->Krfr->b);
 	
-	color color_indirecta;
 
 	if(recursivo>0){
 		recursivo--;
 		color color_reflexion;
 		color color_refraccion;
+		color color_indirecta;
 				
 		// Se calcula la reflexion solo si es necesario
 		if(minimo->propiedades->Krfl->r!=0.0 && 
@@ -546,18 +552,13 @@ color calcular_luz(vector pixel, punto cam, int recursivo)
 			rgb.b = rgb.b + color_refraccion.b * minimo->propiedades->Krfr->b;
 		}
 
-		//color_indirecta = luz_indirecta(esfera, *normal, 0.5, 0.5, recursivo);
-		//rgb.r += color_indirecta.r * (1.0 - minimo->propiedades->Krfl->r - minimo->propiedades->Krfr->r);
-		//rgb.g += color_indirecta.g * (1.0 - minimo->propiedades->Krfl->g - minimo->propiedades->Krfr->g);
-		//rgb.b += color_indirecta.b * (1.0 - minimo->propiedades->Krfl->b - minimo->propiedades->Krfr->b);
-
-	}
-	if(recursivo==RECURSIONES){
-		color_indirecta = luz_indirecta(esfera, *normal, 0.5, 0.5, recursivo);
+		color_indirecta = luz_indirecta(esfera, *normal, pixel, minimo->propiedades->ks, minimo->propiedades->color, minimo->propiedades->alpha, recursivo);
 		rgb.r += color_indirecta.r * (1.0 - minimo->propiedades->Krfl->r - minimo->propiedades->Krfr->r);
 		rgb.g += color_indirecta.g * (1.0 - minimo->propiedades->Krfl->g - minimo->propiedades->Krfr->g);
 		rgb.b += color_indirecta.b * (1.0 - minimo->propiedades->Krfl->b - minimo->propiedades->Krfr->b);
+
 	}
+
 	free(normal);
 
 	if(rgb.r > 1.0) rgb.r=1.0;
@@ -590,7 +591,7 @@ vector global_desde_local(vector local, vector u, vector v, vector n){
 	return global;
 }
 
-color luz_indirecta (punto punto_mat, vector n, double ks, double kd, int recursivo){
+color luz_indirecta (punto punto_mat, vector n, vector incidente, double ks, color *kd, double alpha, int recursivo){
 	color luz_indirecta = {0.0, 0.0, 0.0};
 
 	//primero se obtienen vectores perpendiculares para la geometria local
@@ -627,13 +628,15 @@ color luz_indirecta (punto punto_mat, vector n, double ks, double kd, int recurs
 		reflejado = global_desde_local(reflejado, u, v, n);
 
 		color luz_incidente=calcular_luz(reflejado, punto_mat, 0);
-		double dotproduc = dotproduct(&n, &reflejado);
+		double dotproduc = dotproduct(&incidente, &reflejado);
 		if (dotproduc < 0) dotproduc = -dotproduc;
-		dotproduc = pow(dotproduc, ALPHA);
+		dotproduc = pow(dotproduc, alpha);
+
+		double especular = ks * (alpha + 2) / 2 * dotproduc;
 		
-		luz_indirecta.r += luz_incidente.r * (kd + ks * (ALPHA + 2) / 2 * dotproduc);
-		luz_indirecta.g += luz_incidente.g * (kd + ks * (ALPHA + 2) / 2 * dotproduc);
-		luz_indirecta.b += luz_incidente.b * (kd + ks * (ALPHA + 2) / 2 * dotproduc);
+		luz_indirecta.r += luz_incidente.r * (kd->r + especular);
+		luz_indirecta.g += luz_incidente.g * (kd->g + especular);
+		luz_indirecta.b += luz_incidente.b * (kd->b + especular);
 		
 	}
 	//se divide por el número de muestras y ladistribución de probabilidad

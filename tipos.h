@@ -24,6 +24,8 @@ typedef struct propiedades{
 	color * Krfl;
 	color * Krfr;
 	double indice_ref;
+	double ks;
+	double alpha;
 }propiedades;
 
 typedef struct lista{
