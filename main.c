@@ -22,9 +22,9 @@ color calcular_luz(vector pixel, punto cam, int recursivo);
 color luz_indirecta (punto punto_mat, vector n, double ks, double kd, int recursivo);
 
 // Valores de resolución y posición de la cámara
-int ancho;
-int alto;
-punto camara;
+int ancho=500;
+int alto=500;
+punto camara={0.5,0.5,-6.0};
 int incrementador;
 
 
@@ -54,6 +54,68 @@ int crossproduct (vector * a, vector * b, vector * c){
 	c->y = a->z*b->x - a->x*b->z;
 	c->z = a->x*b->y - a->y*b->x;
 	return 1;
+}
+
+/*
+ * Método para parsear el fichero de la escena
+ */
+int parserOBJ(FILE * f)
+{
+	punto vertices[50000];
+	int i=0;
+	int d=0;
+	// Iteradores para ir guardando los datos
+	lista * aux = NULL;
+	// variables auxiliares
+	double x,y,z;
+	int a,b,c,dummy;
+	char buffdummy[100];
+	// Se lee hasta alcanzar el final del fichero
+
+	while(feof(f)==0)
+	{		
+		char op=fgetc(f);
+		if(op=='\n') op=fgetc(f);
+		if(op=='v' && fgetc(f)==' ')
+		{
+			fscanf(f,"%lf %lf %lf",&x,&y,&z);
+			vertices[i].x=x+0.5;
+			vertices[i].y=y-2.0;
+			vertices[i].z=-z+10.0;
+			//vertices[i].x=x;
+			//vertices[i].y=y;
+			//vertices[i].z=z;
+			i++;
+		} else if(op=='f' && fgetc(f)==' '){
+			fscanf(f,"%d/%d/%d %d/%d/%d %d/%d/%d",&a,&dummy,&dummy,&b,&dummy,&dummy,&c,&dummy,&dummy);
+			d++;
+			a--;b--;c--;
+			lista * la = calloc(1,sizeof(lista));
+			la->radio=-1.0;
+			la->punto=calloc(3,sizeof(punto));
+			la->propiedades=calloc(1,sizeof(propiedades));
+			la->propiedades->color=calloc(1,sizeof(color));
+			la->propiedades->Krfl=calloc(1,sizeof(color));
+			la->propiedades->Krfr=calloc(1,sizeof(color));
+
+			la->punto[0].x=vertices[a].x; la->punto[0].y=vertices[a].y; la->punto[0].z=vertices[a].z;
+			la->punto[1].x=vertices[b].x; la->punto[1].y=vertices[b].y; la->punto[1].z=vertices[b].z;
+			la->punto[2].x=vertices[c].x; la->punto[2].y=vertices[c].y; la->punto[2].z=vertices[c].z;
+			la->propiedades->color->r=0.5; la->propiedades->color->g=0.5; la->propiedades->color->b=0.5;
+			la->propiedades->Krfl->r=0.0; la->propiedades->Krfl->g=0.0; la->propiedades->Krfl->b=0.0;
+			la->propiedades->Krfr->r=0.0; la->propiedades->Krfr->g=0.0; la->propiedades->Krfr->b=0.0;
+			la->propiedades->indice_ref=0.0;
+			if(l==NULL){
+				l=la;
+			} else{
+				aux->l=la;
+			}
+			aux=la;
+		} else{
+			fgets(buffdummy,99,f);
+		}
+	}
+	return 0;
 }
 
 /*
@@ -117,6 +179,31 @@ int parser(FILE * f)
 				aux->l=a;
 			}
 			aux=a;
+		} else if(c=='t')
+		{
+			double x2,y2,z2,x3,y3,z3;
+			fscanf(f, "%lf %lf %lf %lf %lf %lf %lf %lf %lf",&x,&y,&z,&x2,&y2,&z2,&x3,&y3,&z3);
+			lista * a = calloc(1,sizeof(lista));
+			a->radio=-1.0;
+			a->punto=calloc(3,sizeof(punto));
+			a->propiedades=calloc(1,sizeof(propiedades));
+			a->propiedades->color=calloc(1,sizeof(color));
+			a->propiedades->Krfl=calloc(1,sizeof(color));
+			a->propiedades->Krfr=calloc(1,sizeof(color));
+
+			a->punto[0].x=x; a->punto[0].y=y; a->punto[0].z=z;
+			a->punto[1].x=x2; a->punto[1].y=y2; a->punto[1].z=z2;
+			a->punto[2].x=x3; a->punto[2].y=y3; a->punto[2].z=z3;
+			a->propiedades->color->r=0.5; a->propiedades->color->g=0.5; a->propiedades->color->b=0.5;
+			a->propiedades->Krfl->r=0.0; a->propiedades->Krfl->g=0.0; a->propiedades->Krfl->b=0.0;
+			a->propiedades->Krfr->r=0.0; a->propiedades->Krfr->g=0.0; a->propiedades->Krfr->b=0.0;
+			a->propiedades->indice_ref=0.0;
+			if(l==NULL){
+				l=a;
+			} else{
+				aux->l=a;
+			}
+			aux=a;
 		}
 	}
 	return 0;
@@ -148,7 +235,7 @@ double toca_triangulo(punto origen, vector vec, punto V1, punto V2, punto V3)
 
 	double det = dotproduct(&e1, &P);
 
-	if(det > -0.01 && det < 0.01) return -1.0;
+	if(det > -EPSILON && det < EPSILON) return -1.0;
 	double inv_det = 1.0 / det;
 
 	vector T = {origen.x-V1.x, origen.y-V1.y, origen.z-V1.z};
@@ -166,7 +253,7 @@ double toca_triangulo(punto origen, vector vec, punto V1, punto V2, punto V3)
 
 	double t = dotproduct(&e2, &Q) * inv_det;
 
-	if(t > 0.01) {
+	if(t > EPSILON) {
 		return t;
 	}
 
@@ -261,7 +348,12 @@ color luz_directa(punto esfera, lista * minimo, luces * luz, vector pixel, vecto
 	// Se comprueba si hay algun objeto entre el punto y la luz
 	while(1)
 	{
-		dist = toca_esfera(esfera, inter,*aux->punto,aux->radio,&dir);
+		if(aux->radio==-1.0)
+		{
+			dist = toca_triangulo(esfera, inter, aux->punto[0],aux->punto[1],aux->punto[2]);
+		} else{
+			dist = toca_esfera(esfera, inter,*aux->punto,aux->radio,&dir);
+		}
 		
 		if(dist>0.0 && dist <= dist_luz ){
 			color col={0.0,0.0,0.0};
@@ -362,7 +454,13 @@ color calcular_luz(vector pixel, punto cam, int recursivo)
 	char dir_aux = 1;
 	// Buscamos donde se choca el rayo
 	while(1){
-		dist = toca_esfera(cam,pixel,*aux->punto,aux->radio,&dir);
+		if(aux->radio==-1.0)
+		{
+			dist = toca_triangulo(cam, pixel, aux->punto[0],aux->punto[1],aux->punto[2]);
+		} else{
+			dist = toca_esfera(cam,pixel,*aux->punto,aux->radio,&dir);
+		}
+
 		if(dist>0.0 && dist<min){
 			min = dist;
 			minimo = aux;
@@ -384,14 +482,22 @@ color calcular_luz(vector pixel, punto cam, int recursivo)
 
 	// Calculamos la normal dependiendo si se esta dentro o fuera del circulo
 	vector * normal = calloc(1,sizeof(vector));
-	if(dir_aux==1){
-		normal->x = esfera.x - minimo->punto->x;
-		normal->y = esfera.y - minimo->punto->y;
-		normal->z = esfera.z - minimo->punto->z;
+	if(minimo->radio>=0.0){
+		if(dir_aux==1){
+			normal->x = esfera.x - minimo->punto->x;
+			normal->y = esfera.y - minimo->punto->y;
+			normal->z = esfera.z - minimo->punto->z;
+		} else{
+			normal->x = minimo->punto->x - esfera.x;
+			normal->y = minimo->punto->y - esfera.y;
+			normal->z = minimo->punto->z - esfera.z;
+		}
 	} else{
-		normal->x = minimo->punto->x - esfera.x;
-		normal->y = minimo->punto->y - esfera.y;
-		normal->z = minimo->punto->z - esfera.z;
+		vector e1 = {minimo->punto[1].x-minimo->punto[0].x, minimo->punto[1].y-minimo->punto[0].y, minimo->punto[1].z-minimo->punto[0].z};
+		vector e2 = {minimo->punto[2].x-minimo->punto[0].x, minimo->punto[2].y-minimo->punto[0].y, minimo->punto[2].z-minimo->punto[0].z};
+		crossproduct(&e1,&e2,normal);
+		double dotp=dotproduct(normal, &pixel);
+		if(dotp<0.0){normal->x=-normal->x;normal->y=-normal->y;normal->z=-normal->z;}
 	}
 	normalizar(normal);
 
@@ -440,10 +546,10 @@ color calcular_luz(vector pixel, punto cam, int recursivo)
 			rgb.b = rgb.b + color_refraccion.b * minimo->propiedades->Krfr->b;
 		}
 
-		color_indirecta = luz_indirecta(esfera, *normal, 0.5, 0.5, recursivo);
-		rgb.r += color_indirecta.r * (1.0 - minimo->propiedades->Krfl->r - minimo->propiedades->Krfr->r);
-		rgb.g += color_indirecta.g * (1.0 - minimo->propiedades->Krfl->g - minimo->propiedades->Krfr->g);
-		rgb.b += color_indirecta.b * (1.0 - minimo->propiedades->Krfl->b - minimo->propiedades->Krfr->b);
+		//color_indirecta = luz_indirecta(esfera, *normal, 0.5, 0.5, recursivo);
+		//rgb.r += color_indirecta.r * (1.0 - minimo->propiedades->Krfl->r - minimo->propiedades->Krfr->r);
+		//rgb.g += color_indirecta.g * (1.0 - minimo->propiedades->Krfl->g - minimo->propiedades->Krfr->g);
+		//rgb.b += color_indirecta.b * (1.0 - minimo->propiedades->Krfl->b - minimo->propiedades->Krfr->b);
 
 	}
 	if(recursivo==RECURSIONES){
@@ -617,8 +723,9 @@ void* prueba(void* arg)
 int main(int argc, char ** argv)
 {
 	int opt;
+	int obj=0;
 	// Con este bucle obtenemos los parametros dados
-	while ((opt = getopt (argc, argv, "o:i:h")) != -1){
+	while ((opt = getopt (argc, argv, "o:i:j:h")) != -1){
 		switch(opt)
 			{
 				case 'o':
@@ -627,8 +734,12 @@ int main(int argc, char ** argv)
 				case 'i':
 					scn = optarg;
 					break;
+				case 'j':
+					obj=1;
+					scn = optarg;
+					break;
 				case 'h':
-					printf("Use -o para nombre de imagen y -i para nombre de escena\n");
+					printf("Use -o para nombre de imagen, -i para nombre de escena y -j para objs\n");
 					return 0;
 			}
 	}
@@ -638,7 +749,19 @@ int main(int argc, char ** argv)
 
 	imagen = fopen(img, "w");
 	escena = fopen(scn, "r");
-	parser(escena);
+	if(obj==0){
+		parser(escena);
+	}else{
+		parserOBJ(escena);
+		luces * a = calloc(1, sizeof(luces));
+		a->punto=calloc(1,sizeof(punto));
+		a->color=calloc(1,sizeof(color));
+
+		a->punto->x=0.5; a->punto->y=1.5; a->punto->z=7.0;
+		a->color->r=20.0; a->color->g=20.0; a->color->b=20.0;
+		
+		lights=a;
+	}
 	fclose(escena);
 
 	fprintf(imagen, "P3 %d %d 255\n", ancho, alto);
