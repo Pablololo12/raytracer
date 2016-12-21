@@ -82,16 +82,12 @@ int parserOBJ(FILE * f)
 		if(op=='v' && fgetc(f)==' ')
 		{
 			fscanf(f,"%lf %lf %lf",&x,&y,&z);
-			//vertices[i].x=x+0.5;
-			//vertices[i].y=y-2.0;
-			//vertices[i].z=-z+10.0;
 			vertices[i].x=x+0.5;
 			vertices[i].y=y-0.5;
 			vertices[i].z=-z+10.0;//
 			i++;
 		} else if(op=='f' && fgetc(f)==' '){
 			fscanf(f,"%d/%d/%d %d/%d/%d %d/%d/%d",&a,&dummy,&dummy,&b,&dummy,&dummy,&c,&dummy,&dummy);
-			//fscanf(f,"%d/%d %d/%d %d/%d",&a,&dummy,&b,&dummy,&c,&dummy);
 			d++;
 			a--;b--;c--;
 			lista * la = calloc(1,sizeof(lista));
