@@ -1,3 +1,7 @@
+/*
+ * Autores: Pablo Hernandez Almudi y Mario Arcega Sanjuan
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -735,7 +739,7 @@ int main(int argc, char ** argv)
 
 	imagen = fopen(img, "w");
 	escena = fopen(scn, "r");
-	
+
 	if(obj==0){
 		parser(escena);
 	}else{

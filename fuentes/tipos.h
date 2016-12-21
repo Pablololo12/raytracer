@@ -1,3 +1,7 @@
+/*
+ * Autores: Pablo Hernandez Almudi y Mario Arcega Sanjuan
+ */
+
 #ifndef TIPOS_H
 #define TIPOS_H
 
