@@ -25,9 +25,9 @@ color calcular_luz(vector pixel, punto cam, int recursivo);
 color luz_indirecta (punto punto_mat, vector n, vector incidente, double ks, color *kd, double alpha, int recursivo);
 
 // Valores de resolución y posición de la cámara
-int ancho=2000;
-int alto=2000;
-punto camara={0.5,0.5,-6.0};
+int ancho=1000;
+int alto=1000;
+punto camara={0.5,0.5,-3.0};
 int incrementador;
 
 
@@ -65,13 +65,14 @@ int crossproduct (vector * a, vector * b, vector * c){
 int parserOBJ(FILE * f)
 {
 	punto vertices[50000];
+	vector normales[50000];
 	int i=0;
 	int d=0;
 	// Iteradores para ir guardando los datos
 	lista * aux = NULL;
 	// variables auxiliares
 	double x,y,z;
-	int a,b,c,dummy;
+	int a,b,c,dummy,a2,b2,c2;
 	char buffdummy[100];
 	// Se lee hasta alcanzar el final del fichero
 
@@ -79,20 +80,29 @@ int parserOBJ(FILE * f)
 	{		
 		char op=fgetc(f);
 		if(op=='\n') op=fgetc(f);
-		if(op=='v' && fgetc(f)==' ')
-		{
-			fscanf(f,"%lf %lf %lf",&x,&y,&z);
-			vertices[i].x=x+0.5;
-			vertices[i].y=y-0.5;
-			vertices[i].z=-z+10.0;//
-			i++;
+		if(op=='v'){
+			op=fgetc(f);
+			if(op==' '){
+				fscanf(f,"%lf %lf %lf",&x,&y,&z);
+				vertices[i].x=x+0.5;
+				vertices[i].y=y-0.5;
+				vertices[i].z=-z;//
+				i++;
+			} else if(op=='n'){
+				fscanf(f,"%lf %lf %lf",&x,&y,&z);
+				normales[d].x=x;
+				normales[d].y=y;
+				normales[d].z=-z;
+				d++;
+			}
 		} else if(op=='f' && fgetc(f)==' '){
-			fscanf(f,"%d/%d/%d %d/%d/%d %d/%d/%d",&a,&dummy,&dummy,&b,&dummy,&dummy,&c,&dummy,&dummy);
-			d++;
+			fscanf(f,"%d/%d/%d %d/%d/%d %d/%d/%d",&a,&dummy,&a2,&b,&dummy,&b2,&c,&dummy,&c2);
 			a--;b--;c--;
+			a2--;b2--;c2--;
 			lista * la = calloc(1,sizeof(lista));
 			la->radio=-1.0;
 			la->punto=calloc(3,sizeof(punto));
+			la->normales=calloc(3,sizeof(vector));
 			la->propiedades=calloc(1,sizeof(propiedades));
 			la->propiedades->color=calloc(1,sizeof(color));
 			la->propiedades->Krfl=calloc(1,sizeof(color));
@@ -101,6 +111,11 @@ int parserOBJ(FILE * f)
 			la->punto[0].x=vertices[a].x; la->punto[0].y=vertices[a].y; la->punto[0].z=vertices[a].z;
 			la->punto[1].x=vertices[b].x; la->punto[1].y=vertices[b].y; la->punto[1].z=vertices[b].z;
 			la->punto[2].x=vertices[c].x; la->punto[2].y=vertices[c].y; la->punto[2].z=vertices[c].z;
+
+			la->normales[0].x=normales[a2].x; la->normales[0].y=normales[a2].y; la->normales[0].z=normales[a2].z;
+			la->normales[1].x=normales[b2].x; la->normales[1].y=normales[b2].y; la->normales[1].z=normales[b2].z;
+			la->normales[2].x=normales[c2].x; la->normales[2].y=normales[c2].y; la->normales[2].z=normales[c2].z;
+
 			la->propiedades->color->r=0.5; la->propiedades->color->g=0.5; la->propiedades->color->b=0.5;
 			la->propiedades->Krfl->r=0.0; la->propiedades->Krfl->g=0.0; la->propiedades->Krfl->b=0.0;
 			la->propiedades->Krfr->r=0.0; la->propiedades->Krfr->g=0.0; la->propiedades->Krfr->b=0.0;
@@ -109,7 +124,7 @@ int parserOBJ(FILE * f)
 			la->propiedades->alpha=1;
 			if(l==NULL){
 				l=la;
-			} else{
+			} else{;
 				aux->l=la;
 			}
 			aux=la;
@@ -198,6 +213,7 @@ int parser(FILE * f)
 			a->punto[0].x=x; a->punto[0].y=y; a->punto[0].z=z;
 			a->punto[1].x=x2; a->punto[1].y=y2; a->punto[1].z=z2;
 			a->punto[2].x=x3; a->punto[2].y=y3; a->punto[2].z=z3;
+			a->normales=NULL;
 			a->propiedades->color->r=R; a->propiedades->color->g=G; a->propiedades->color->b=B;
 			a->propiedades->Krfl->r=0.0; a->propiedades->Krfl->g=0.0; a->propiedades->Krfl->b=0.0;
 			a->propiedades->Krfr->r=0.0; a->propiedades->Krfr->g=0.0; a->propiedades->Krfr->b=0.0;
@@ -396,9 +412,9 @@ color luz_directa(punto esfera, lista * minimo, luces * luz, vector pixel, vecto
 	double especular = minimo->propiedades->ks * (minimo->propiedades->alpha + 2) / 2 * dotproductPhong;
 
 	color rgb={0.0,0.0,0.0};
-	rgb.r = power.r * (minimo->propiedades->color->r + especular) / M_PI * dotproductIntegral;
-	rgb.g = power.g * (minimo->propiedades->color->g + especular) / M_PI * dotproductIntegral;
-	rgb.b = power.b * (minimo->propiedades->color->b + especular) / M_PI * dotproductIntegral;
+	rgb.r = power.r * (minimo->propiedades->color->r + especular) / M_PI;
+	rgb.g = power.g * (minimo->propiedades->color->g + especular) / M_PI;
+	rgb.b = power.b * (minimo->propiedades->color->b + especular) / M_PI;
 
 	return rgb;
 }
@@ -499,11 +515,30 @@ color calcular_luz(vector pixel, punto cam, int recursivo)
 			normal->z = minimo->punto->z - esfera.z;
 		}
 	} else{
-		vector e1 = {minimo->punto[1].x-minimo->punto[0].x, minimo->punto[1].y-minimo->punto[0].y, minimo->punto[1].z-minimo->punto[0].z};
-		vector e2 = {minimo->punto[2].x-minimo->punto[0].x, minimo->punto[2].y-minimo->punto[0].y, minimo->punto[2].z-minimo->punto[0].z};
-		crossproduct(&e1,&e2,normal);
-		double dotp=dotproduct(normal, &pixel);
-		if(dotp>0.0){normal->x=-normal->x;normal->y=-normal->y;normal->z=-normal->z;}
+		if(minimo->normales == NULL){
+			vector e1 = {minimo->punto[1].x-minimo->punto[0].x, minimo->punto[1].y-minimo->punto[0].y, minimo->punto[1].z-minimo->punto[0].z};
+			vector e2 = {minimo->punto[2].x-minimo->punto[0].x, minimo->punto[2].y-minimo->punto[0].y, minimo->punto[2].z-minimo->punto[0].z};
+			crossproduct(&e1,&e2,normal);
+			double dotp=dotproduct(normal, &pixel);
+			if(dotp>0.0){normal->x=-normal->x;normal->y=-normal->y;normal->z=-normal->z;}
+		}else{
+			vector d1 = {esfera.x-minimo->punto[0].x, esfera.y-minimo->punto[0].y, esfera.z-minimo->punto[0].z};
+			vector d2 = {esfera.x-minimo->punto[1].x, esfera.y-minimo->punto[1].y, esfera.z-minimo->punto[1].z};
+			vector d3 = {esfera.x-minimo->punto[2].x, esfera.y-minimo->punto[2].y, esfera.z-minimo->punto[2].z};
+
+			double dist1 = sqrt(d1.x*d1.x+d1.y*d1.y+d1.z*d1.z);
+			double dist2 = sqrt(d2.x*d2.x+d2.y*d2.y+d2.z*d2.z);
+			double dist3 = sqrt(d3.x*d3.x+d3.y*d3.y+d3.z*d3.z);
+			double sumatorio = dist1+dist2+dist3;
+			dist1=dist1/sumatorio; dist2=dist2/sumatorio; dist3=dist3/sumatorio;
+
+			normal->x = minimo->normales[0].x*(1.0-dist1)+minimo->normales[1].x*(1.0-dist2)+minimo->normales[2].x*(1.0-dist3);
+			normal->y = minimo->normales[0].y*(1.0-dist1)+minimo->normales[1].y*(1.0-dist2)+minimo->normales[2].y*(1.0-dist3);
+			normal->z = minimo->normales[0].z*(1.0-dist1)+minimo->normales[1].z*(1.0-dist2)+minimo->normales[2].z*(1.0-dist3);
+			
+			double dotp=dotproduct(normal, &pixel);
+			if(dotp>0.0){normal->x=-normal->x;normal->y=-normal->y;normal->z=-normal->z;}
+		}
 	}
 	normalizar(normal);
 
@@ -744,8 +779,8 @@ int main(int argc, char ** argv)
 		a->punto=calloc(1,sizeof(punto));
 		a->color=calloc(1,sizeof(color));
 
-		a->punto->x=0.5; a->punto->y=1.5; a->punto->z=7.0;
-		a->color->r=20.0; a->color->g=20.0; a->color->b=20.0;
+		a->punto->x=0.0; a->punto->y=1.0; a->punto->z=-2.0;
+		a->color->r=7.0; a->color->g=7.0; a->color->b=7.0;
 		
 		lights=a;
 	}

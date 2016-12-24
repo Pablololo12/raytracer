@@ -34,6 +34,7 @@ typedef struct propiedades{
 
 typedef struct lista{
 	punto * punto;
+	vector * normales;
 	propiedades * propiedades;
 	double radio;
 	struct lista * l;
