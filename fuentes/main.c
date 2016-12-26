@@ -11,6 +11,14 @@
 #include <pthread.h>
 #include "tipos.h"
 
+#ifdef OPENGL
+	#ifdef __APPLE__
+	#include <GLUT/glut.h>
+	#else
+	#include <GL/glut.h>
+	#endif
+#endif
+
 #define RAYOS_INDIRECTOS	64
 #define RECURSIONES 5
 #define NUM_THREADS 4
@@ -18,7 +26,7 @@
 volatile sig_atomic_t progreso=0;
 volatile sig_atomic_t porcentaje=0;
 
-int * img_buff;
+unsigned char * img_buff;
 
 
 color calcular_luz(vector pixel, punto cam, int recursivo);
@@ -85,7 +93,7 @@ int parserOBJ(FILE * f)
 			if(op==' '){
 				fscanf(f,"%lf %lf %lf",&x,&y,&z);
 				vertices[i].x=x+0.5;
-				vertices[i].y=y-0.5;
+				vertices[i].y=y+0.5;
 				vertices[i].z=-z;//
 				i++;
 			} else if(op=='n'){
@@ -124,7 +132,7 @@ int parserOBJ(FILE * f)
 			la->propiedades->alpha=1;
 			if(l==NULL){
 				l=la;
-			} else{;
+			} else{
 				aux->l=la;
 			}
 			aux=la;
@@ -521,23 +529,29 @@ color calcular_luz(vector pixel, punto cam, int recursivo)
 			crossproduct(&e1,&e2,normal);
 			double dotp=dotproduct(normal, &pixel);
 			if(dotp>0.0){normal->x=-normal->x;normal->y=-normal->y;normal->z=-normal->z;}
+		
 		}else{
-			vector d1 = {esfera.x-minimo->punto[0].x, esfera.y-minimo->punto[0].y, esfera.z-minimo->punto[0].z};
-			vector d2 = {esfera.x-minimo->punto[1].x, esfera.y-minimo->punto[1].y, esfera.z-minimo->punto[1].z};
-			vector d3 = {esfera.x-minimo->punto[2].x, esfera.y-minimo->punto[2].y, esfera.z-minimo->punto[2].z};
+			vector d1 = {minimo->punto[0].x-esfera.x, minimo->punto[0].y-esfera.y, minimo->punto[0].z-esfera.z};
+			vector d2 = {minimo->punto[1].x-esfera.x, minimo->punto[1].y-esfera.y, minimo->punto[1].z-esfera.z};
+			vector d3 = {minimo->punto[2].x-esfera.x, minimo->punto[2].y-esfera.y, minimo->punto[2].z-esfera.z};
 
-			double dist1 = sqrt(d1.x*d1.x+d1.y*d1.y+d1.z*d1.z);
-			double dist2 = sqrt(d2.x*d2.x+d2.y*d2.y+d2.z*d2.z);
-			double dist3 = sqrt(d3.x*d3.x+d3.y*d3.y+d3.z*d3.z);
-			double sumatorio = dist1+dist2+dist3;
-			dist1=dist1/sumatorio; dist2=dist2/sumatorio; dist3=dist3/sumatorio;
+			vector aux;
+			crossproduct(&d1,&d2,&aux);
+			double area3 = sqrt(aux.x*aux.x+aux.y*aux.y+aux.z*aux.z)/2.0;
 
-			normal->x = minimo->normales[0].x*(1.0-dist1)+minimo->normales[1].x*(1.0-dist2)+minimo->normales[2].x*(1.0-dist3);
-			normal->y = minimo->normales[0].y*(1.0-dist1)+minimo->normales[1].y*(1.0-dist2)+minimo->normales[2].y*(1.0-dist3);
-			normal->z = minimo->normales[0].z*(1.0-dist1)+minimo->normales[1].z*(1.0-dist2)+minimo->normales[2].z*(1.0-dist3);
-			
-			double dotp=dotproduct(normal, &pixel);
-			if(dotp>0.0){normal->x=-normal->x;normal->y=-normal->y;normal->z=-normal->z;}
+			crossproduct(&d2,&d3,&aux);
+			double area1 = sqrt(aux.x*aux.x+aux.y*aux.y+aux.z*aux.z)/2.0;
+
+			crossproduct(&d3,&d1,&aux);
+			double area2 = sqrt(aux.x*aux.x+aux.y*aux.y+aux.z*aux.z)/2.0;
+
+			double sumatorio = area1+area2+area3;
+			area1=area1/sumatorio; area2=area2/sumatorio; area3=area3/sumatorio;
+
+			normal->x = minimo->normales[0].x*area1+minimo->normales[1].x*area2+minimo->normales[2].x*area3;
+			normal->y = minimo->normales[0].y*area1+minimo->normales[1].y*area2+minimo->normales[2].y*area3;
+			normal->z = minimo->normales[0].z*area1+minimo->normales[1].z*area2+minimo->normales[2].z*area3;
+
 		}
 	}
 	normalizar(normal);
@@ -681,10 +695,6 @@ color luz_indirecta (punto punto_mat, vector n, vector incidente, double ks, col
 	luz_indirecta.g = luz_indirecta.g/(double)(RAYOS_INDIRECTOS);
 	luz_indirecta.b = luz_indirecta.b/(double)(RAYOS_INDIRECTOS);
 
-	/**if (luz_indirecta.r != 0.0 || luz_indirecta.g != 0 || luz_indirecta.b != 0){
-		printf("Ojo\n");
-	}*/
-
 	return luz_indirecta;
 }
 
@@ -722,9 +732,9 @@ void* trabajador(void * argumentos)
 			// Desnormalizamos la luz
 			col.r = col.r * 255.0; col.g = col.g * 255; col.b = col.b * 255.0;
 			saturacion_color(&col);
-			img_buff[index_buffer]=(int)col.r;
-			img_buff[index_buffer+1]=(int)col.g;
-			img_buff[index_buffer+2]=(int)col.b;
+			img_buff[index_buffer]=(unsigned char)col.r;
+			img_buff[index_buffer+1]=(unsigned char)col.g;
+			img_buff[index_buffer+2]=(unsigned char)col.b;
 			index_buffer += 3;
 		}
 		progreso++;
@@ -740,6 +750,14 @@ void* trabajador(void * argumentos)
 	}
 	return NULL;
 }
+
+#ifdef OPENGL
+void mostrar()
+{
+	glDrawPixels( ancho, alto, GL_RGB, GL_UNSIGNED_BYTE, img_buff);
+	glutSwapBuffers();
+}
+#endif
 
 int main(int argc, char ** argv)
 {
@@ -779,16 +797,25 @@ int main(int argc, char ** argv)
 		a->punto=calloc(1,sizeof(punto));
 		a->color=calloc(1,sizeof(color));
 
-		a->punto->x=0.0; a->punto->y=1.0; a->punto->z=-2.0;
-		a->color->r=7.0; a->color->g=7.0; a->color->b=7.0;
+		a->punto->x=0.5; a->punto->y=0.5; a->punto->z=0.0;
+		a->color->r=5.0; a->color->g=5.0; a->color->b=5.0;
 		
 		lights=a;
 	}
 	fclose(escena);
 
 	fprintf(imagen, "P3 %d %d 255\n", ancho, alto);
-	img_buff=malloc(ancho*alto*sizeof(int)*3);
+	img_buff=malloc(ancho*alto*sizeof(char)*3);
 	incrementador = alto/100;
+
+	#ifdef OPENGL
+	glutInit( &argc, argv );
+	glutInitDisplayMode( GLUT_RGBA | GLUT_DOUBLE );
+	glutInitWindowSize( ancho, alto );
+	glutSetWindow(glutCreateWindow( "Preview" ));
+	glutDisplayFunc( mostrar );
+	glutIdleFunc(mostrar);
+	#endif
 
 	pthread_t threads[ NUM_THREADS ];
 	int thread_args[ NUM_THREADS ];
@@ -799,6 +826,10 @@ int main(int argc, char ** argv)
 		thread_args[ index ] = index;
 		pthread_create( threads + index , NULL, trabajador, thread_args + index );
 	}
+
+	#ifdef OPENGL
+	glutMainLoop();
+	#endif
 
 	// wait for each thread to complete
 	for( index = 0; index < NUM_THREADS; ++index )
@@ -812,5 +843,6 @@ int main(int argc, char ** argv)
 		fprintf(imagen, "%d %d %d  ", img_buff[i],img_buff[i+1],img_buff[i+2]);
 	fclose(imagen);
 	printf("\n");
+
 	return 0;
 }
