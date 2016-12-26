@@ -420,9 +420,9 @@ color luz_directa(punto esfera, lista * minimo, luces * luz, vector pixel, vecto
 	double especular = minimo->propiedades->ks * (minimo->propiedades->alpha + 2) / 2 * dotproductPhong;
 
 	color rgb={0.0,0.0,0.0};
-	rgb.r = power.r * (minimo->propiedades->color->r + especular) / M_PI;
-	rgb.g = power.g * (minimo->propiedades->color->g + especular) / M_PI;
-	rgb.b = power.b * (minimo->propiedades->color->b + especular) / M_PI;
+	rgb.r = power.r * (minimo->propiedades->color->r + especular) / M_PI * dotproductIntegral;
+	rgb.g = power.g * (minimo->propiedades->color->g + especular) / M_PI * dotproductIntegral;
+	rgb.b = power.b * (minimo->propiedades->color->b + especular) / M_PI * dotproductIntegral;
 
 	return rgb;
 }
@@ -786,7 +786,6 @@ int main(int argc, char ** argv)
 	FILE * imagen;
 	FILE * escena;
 
-	imagen = fopen(img, "w");
 	escena = fopen(scn, "r");
 
 	if(obj==0){
@@ -804,7 +803,6 @@ int main(int argc, char ** argv)
 	}
 	fclose(escena);
 
-	fprintf(imagen, "P3 %d %d 255\n", ancho, alto);
 	img_buff=malloc(ancho*alto*sizeof(char)*3);
 	incrementador = alto/100;
 
@@ -815,6 +813,8 @@ int main(int argc, char ** argv)
 	glutSetWindow(glutCreateWindow( "Preview" ));
 	glutDisplayFunc( mostrar );
 	glutIdleFunc(mostrar);
+	glRasterPos2f(-1,1);
+	glPixelZoom( 1, -1 );
 	#endif
 
 	pthread_t threads[ NUM_THREADS ];
@@ -838,6 +838,8 @@ int main(int argc, char ** argv)
 	}
 
 	printf("\nEscribiendo imagen...");
+	imagen = fopen(img, "w");
+	fprintf(imagen, "P3 %d %d 255\n", ancho, alto);
 	int i;
 	for(i=0; i<alto*ancho*3;i+=3)
 		fprintf(imagen, "%d %d %d  ", img_buff[i],img_buff[i+1],img_buff[i+2]);

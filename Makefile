@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Ofast -lm -lpthread -std=c11
+CFLAGS = -Wall -Ofast -lm -lpthread -std=gnu11
 OGLFLAGS = -framework OpenGL -framework GLUT -Wno-deprecated-declarations
 
 all:
