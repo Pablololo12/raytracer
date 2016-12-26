@@ -6,10 +6,10 @@ all:
 	$(CC) $(CFLAGS) -o ray-trace fuentes/main.c
 #compilar Linux
 ogl:
-	$(CC) $(CFLAGS) $(OGLFLAGS) -lOpenGL -DOPENGL -o ray-trace fuentes/main.c
+	$(CC) $(CFLAGS) $(OGLFLAGS) -lOpenGL -lglut -DOPENGL -o ray-trace fuentes/main.c
 #compilar Mac
 oglm:
-	$(CC) $(CFLAGS) $(OGLFLAGS) -framework GLUT -DOPENGL -o ray-trace fuentes/main.c
+	$(CC) $(CFLAGS) $(OGLFLAGS) -framework OpenGL -framework GLUT -DOPENGL -o ray-trace fuentes/main.c
 
 clean:
 	$(RM) ray-trace

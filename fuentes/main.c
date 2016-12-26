@@ -33,8 +33,8 @@ color calcular_luz(vector pixel, punto cam, int recursivo);
 color luz_indirecta (punto punto_mat, vector n, vector incidente, double ks, color *kd, double alpha, int recursivo);
 
 // Valores de resolución y posición de la cámara
-int ancho=1000;
-int alto=1000;
+int ancho=500;
+int alto=500;
 punto camara={0.5,0.5,-3.0};
 int incrementador;
 
@@ -849,27 +849,27 @@ int main(int argc, char ** argv)
 	}
 
 	#ifdef OPENGL
-	pthread_t espera;
-	pthread_create(&espera, NULL, escritura, threads);
-	glutMainLoop();
+		pthread_t espera;
+		pthread_create(&espera, NULL, escritura, threads);
+		glutMainLoop();
 	
 	#else
 
-	// wait for each thread to complete
-	for( index = 0; index < NUM_THREADS; ++index )
-	{
-		pthread_join( threads[ index ], NULL );
-	}
+		// wait for each thread to complete
+		for( index = 0; index < NUM_THREADS; ++index )
+		{
+			pthread_join( threads[ index ], NULL );
+		}
 
-	printf("\nEscribiendo imagen...");
-	FILE * imagen;
-	imagen = fopen(img, "w");
-	fprintf(imagen, "P3 %d %d 255\n", ancho, alto);
-	int i;
-	for(i=0; i<alto*ancho*3;i+=3)
-		fprintf(imagen, "%d %d %d  ", img_buff[i],img_buff[i+1],img_buff[i+2]);
-	fclose(imagen);
-	printf("\n");
+		printf("\nEscribiendo imagen...");
+		FILE * imagen;
+		imagen = fopen(img, "w");
+		fprintf(imagen, "P3 %d %d 255\n", ancho, alto);
+		int i;
+		for(i=0; i<alto*ancho*3;i+=3)
+			fprintf(imagen, "%d %d %d  ", img_buff[i],img_buff[i+1],img_buff[i+2]);
+		fclose(imagen);
+		printf("\n");
 	#endif
 	return 0;
 }
