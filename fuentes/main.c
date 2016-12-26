@@ -757,6 +757,29 @@ void mostrar()
 	glDrawPixels( ancho, alto, GL_RGB, GL_UNSIGNED_BYTE, img_buff);
 	glutSwapBuffers();
 }
+
+void* escritura(void * args)
+{
+	pthread_t * threads= (pthread_t *) args;
+	// wait for each thread to complete
+	for(int index = 0; index < NUM_THREADS; ++index )
+	{
+		pthread_join( threads[ index ], NULL );
+	}
+
+	printf("\nEscribiendo imagen...");
+	FILE * imagen;
+	imagen = fopen(img, "w");
+	fprintf(imagen, "P3 %d %d 255\n", ancho, alto);
+	int i;
+	for(i=0; i<alto*ancho*3;i+=3)
+		fprintf(imagen, "%d %d %d  ", img_buff[i],img_buff[i+1],img_buff[i+2]);
+	fclose(imagen);
+	printf("\n");
+
+	exit(0);
+	return NULL;
+}
 #endif
 
 int main(int argc, char ** argv)
@@ -782,8 +805,6 @@ int main(int argc, char ** argv)
 					return 0;
 			}
 	}
-
-	FILE * imagen;
 	FILE * escena;
 
 	escena = fopen(scn, "r");
@@ -828,8 +849,11 @@ int main(int argc, char ** argv)
 	}
 
 	#ifdef OPENGL
+	pthread_t espera;
+	pthread_create(&espera, NULL, escritura, threads);
 	glutMainLoop();
-	#endif
+	
+	#else
 
 	// wait for each thread to complete
 	for( index = 0; index < NUM_THREADS; ++index )
@@ -838,6 +862,7 @@ int main(int argc, char ** argv)
 	}
 
 	printf("\nEscribiendo imagen...");
+	FILE * imagen;
 	imagen = fopen(img, "w");
 	fprintf(imagen, "P3 %d %d 255\n", ancho, alto);
 	int i;
@@ -845,6 +870,6 @@ int main(int argc, char ** argv)
 		fprintf(imagen, "%d %d %d  ", img_buff[i],img_buff[i+1],img_buff[i+2]);
 	fclose(imagen);
 	printf("\n");
-
+	#endif
 	return 0;
 }
