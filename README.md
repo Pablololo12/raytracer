@@ -1,3 +1,3 @@
-# raytracking
+# raytracer
 
-### Trabajo de la asignatura Informática Gráfica
+### A Ray tracer for computer graphics
